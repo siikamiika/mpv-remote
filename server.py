@@ -2,15 +2,17 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qsl, quote
 from pathlib import Path
 from functools import cmp_to_key
-from subprocess import call
+from subprocess import Popen
 
 base = """<head>
+<meta name="viewport" content="width=device-width, user-scalable=no" />
 <style>
 body {background-color: black; color: white;}
 a:link {color: white;}
 a:visited {color: #aaaaaa}
 .folder {background-color: blue;}
-.file {background-color: green;}
+.video {background-color: green;}
+li {margin-bottom: 1em;}
 </style>
 </head>
 """
@@ -52,9 +54,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 link = quote(str(x))
                 text = str(x).split('/')[-1]
                 if x.is_file():
+                    vid = False
+                    if text.split('.')[-1] in ['avi', 'mp4', 'mkv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv']:
+                        vid = True
                     listing.append(
-                        '<li><a class="file" href="?play={link}">{text}</a></li>'.format(
-                            link=link, text=text))
+                        '<li><a class="{cls}" href="?play={link}">{text}</a></li>'.format(
+                            cls=('video' if vid else 'file'), link=link, text=text))
                 elif x.is_dir():
                     listing.append(
                         '<li><a class="folder" href="?dir={link}/">{text}/</a></li>'.format(
@@ -65,7 +70,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def play_file(self, fpath):
         self.respond_ok('file playing...'.encode())
-        call(['mpv', fpath])
+        Popen(['mpv', '--lua=commandbridge.lua', '--fs', '--force-window', fpath])
 
 
     def do_GET(self):
