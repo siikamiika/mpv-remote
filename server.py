@@ -41,8 +41,8 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         parts = str(d).split(sep)
         links = '<a href="/?dir=/">(root)</a>' + sep.join(
             '<a href="/?dir={0}/">{1}</a>'.format(
-                sep.join(parts[:parts.index(d_)+1]), d_)
-                for d_ in parts
+                sep.join(parts[:i+1]), d_)
+                for i, d_ in enumerate(parts)
             )
         listing = ['<h1>{}</h1><hr><ul>'.format(links)]
 
