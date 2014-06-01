@@ -2,10 +2,12 @@ function evil(e)
 	assert(loadstring(e))()
 end
 
+socket = require("socket")
+udp = socket.udp()
+udp:setsockname("localhost", 9876)
+
 while true do
-	print(mp.get_property("path"))
-	pipe = io.open(mp.get_property("path")..".pipe")
-	cmd = pipe:read()
+	cmd = assert(udp:receive())
+	print(cmd)
 	evil(cmd)
-	pipe:close()
 end

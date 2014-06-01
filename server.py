@@ -2,11 +2,16 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qsl, quote
 from pathlib import Path
 from functools import cmp_to_key
-from subprocess import Popen
-from os import sep
+from subprocess import call
+import os
 from os.path import expanduser
+from threading import Thread
+import socket
 
-base = """<head>
+class MpvRequestHandler(BaseHTTPRequestHandler):
+
+    base = \
+"""<head>
 <meta name="viewport" content="width=device-width, user-scalable=no" />
 <style>
 body {background-color: black; color: white;}
@@ -15,11 +20,51 @@ a:visited {color: #aaaaaa}
 .folder {background-color: blue;}
 .video {background-color: green;}
 li {margin-bottom: 1em;}
+.b {text-decoration: none; background-color: blue; padding: 10px 10px 10px 10px;}
 </style>
 </head>
 """
 
-class MpvRequestHandler(BaseHTTPRequestHandler):
+    commands = dict(
+        playpause=b'mp.command("cycle pause")',
+        chapter_next=b'mp.command("add chapter 1")',
+        chapter_previous=b'mp.command("add chapter -1")',
+        vol_up=b'mp.command("add volume 1")',
+        vol_down=b'mp.command("add volume -1")',
+        mute=b'mp.command("cycle mute")',
+        forward_small=b'mp.command("seek 10")',
+        back_small=b'mp.command("seek -10")',
+        forward_big=b'mp.command("seek 300")',
+        back_big=b'mp.command("seek -300")',
+        fullscreen=b'mp.command("cycle fullscreen")',
+        stop=b'mp.command("stop")',
+        sub=b'mp.command("cycle sub")',
+        audio=b'mp.command("cycle audio")',
+    )
+
+    controls = (base + \
+            '<div style="text-align: center; font-size: 200%; padding-top: 2em;">'
+            '<a class="b" href="/?control=vol_down">vol -</a>'
+            '<a class="b" href="/?control=mute">mute</a>'
+            '<a class="b" href="/?control=vol_up">vol +</a><br><br>'
+            '<a class="b" href="/?control=chapter_previous">ch -</a>'
+            '<a class="b" href="/?control=chapter_next">ch +</a><br><br>'
+            '<a class="b" href="/?control=back_big">&lt;&lt;</a>'
+            '<a class="b" href="/?control=back_small">&lt;</a>'
+            '&nbsp;<a class="b" href="/?control=playpause">&#9658;</a>&nbsp;'
+            '<a class="b" href="/?control=forward_small">&gt;</a>'
+            '<a class="b" href="/?control=forward_big">&gt;&gt;</a><br><br>'
+            '<a class="b" href="/?control=sub">sub</a>'
+            '<a class="b" href="/?control=audio">audio</a><br><br>'
+            '<a class="b" href="/?control=stop">exit</a>'
+            '<a class="b" href="/?control=fullscreen">full</a>'
+            '</div>'
+            )
+
+    def redirect(self, location):
+        self.send_response(302)
+        self.send_header('Location', location)
+        self.end_headers()
 
     def respond_ok(self, data):
         self.send_response(200)
@@ -38,20 +83,20 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         if not d.is_dir():
             self.respond_notfound()
             return
-        parts = str(d).split(sep)
-        links = '<a href="/?dir=/">(root)</a>' + sep.join(
+        parts = str(d).split(os.sep)
+        links = '<a href="/?dir=/">(root)</a>' + os.sep.join(
             '<a href="/?dir={0}/">{1}</a>'.format(
-                sep.join(parts[:i+1]), d_)
+                os.sep.join(parts[:i+1]), d_)
                 for i, d_ in enumerate(parts)
             )
         listing = ['<h1>{}</h1><hr><ul>'.format(links)]
 
         def sort_cmp(a, b):
             if a.is_dir() == b.is_dir():
-                return (a > b)*2 - 1
+                return (str(a).lower() > str(b).lower())*2 - 1
             elif a.is_dir():
                 return -1
-            elif a.is_file():
+            else:
                 return 1
 
         for x in sorted(d.iterdir(), key=cmp_to_key(lambda x, y: sort_cmp(x,y))):
@@ -59,7 +104,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             text = str(x).split('/')[-1]
             if x.is_file():
                 vid = False
-                vid_ext = ['avi', 'mp4', 'mkv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv']
+                vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv']
                 if text.split('.')[-1] in vid_ext:
                     vid = True
                 listing.append(
@@ -71,31 +116,40 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                         link=link, text=text))
         listing.append('</ul>')
 
-        self.respond_ok((base + ''.join(listing)).encode())
+        self.respond_ok((self.base + ''.join(listing)).encode())
 
     def play_file(self, fpath):
-        self.respond_ok('file playing...'.encode())
-        Popen(['mpv', '--lua=commandbridge.lua', '--fs', '--force-window', fpath])
-
+        call('killall -9 mpv', shell=True)
+        def call_mpv(fpath):
+            call(['mpv', '--lua=commandbridge.lua', '--fs', '--force-window', fpath])
+        Thread(target=call_mpv, args=(fpath,)).start()
+        self.redirect('/control')
 
     def do_GET(self):
 
         qs_list = dict(parse_qsl(urlparse(self.path).query))
         dir_path = qs_list.get('dir')
         play_path = qs_list.get('play')
+        control_command = qs_list.get('control')
 
         if dir_path:
             self.list_dir(dir_path)
         elif play_path:
             self.play_file(play_path)
+        elif control_command in self.commands:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.sendto(self.commands[control_command], ('localhost', 9876))
+            h = 1
+            if control_command == 'stop': h = 2
+            self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
+        elif self.path == '/control':
+            self.respond_ok(self.controls.encode())
         elif self.path == '/':
             homedir = expanduser('~')
-            self.send_response(302)
-            self.send_header('Location', '/?dir='+quote(homedir))
-            self.end_headers()
+            self.redirect('/?dir='+quote(homedir))
         else:
             self.respond_notfound()
 
-
-srv = HTTPServer(('', 9876), MpvRequestHandler)
-srv.serve_forever()
+if __name__ == '__main__':
+    srv = HTTPServer(('', 9876), MpvRequestHandler)
+    srv.serve_forever()
