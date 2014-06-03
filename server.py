@@ -86,13 +86,18 @@ li {margin-bottom: 1em;}
         parts = str(d).split(os.sep)
         links = '<a href="/?dir=/">(root)</a>' + os.sep.join(
             '<a href="/?dir={0}/">{1}</a>'.format(
-                os.sep.join(parts[:i+1]), d_)
+                quote(os.sep.join(parts[:i+1])), d_)
                 for i, d_ in enumerate(parts)
             )
         listing = ['<h1>{}</h1><hr><ul>'.format(links)]
 
         def sort_cmp(a, b):
-            if a.is_dir() == b.is_dir():
+            try:
+                sametype = a.is_dir() == b.is_dir()
+            except Exception as e:
+                print(e)
+                sametype = True
+            if sametype:
                 return (str(a).lower() > str(b).lower())*2 - 1
             elif a.is_dir():
                 return -1
@@ -102,7 +107,11 @@ li {margin-bottom: 1em;}
         for x in sorted(d.iterdir(), key=cmp_to_key(lambda x, y: sort_cmp(x,y))):
             link = quote(str(x))
             text = str(x).split('/')[-1]
-            if x.is_file():
+            try:
+                isfile = x.is_file()
+            except Exception as e:
+                isfile = True
+            if isfile:
                 vid = False
                 vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv']
                 if text.split('.')[-1] in vid_ext:
@@ -110,7 +119,7 @@ li {margin-bottom: 1em;}
                 listing.append(
                     '<li><a class="{cls}" href="/?play={link}">{text}</a></li>'.format(
                         cls=('video' if vid else 'file'), link=link, text=text))
-            elif x.is_dir():
+            else:
                 listing.append(
                     '<li><a class="folder" href="/?dir={link}/">{text}/</a></li>'.format(
                         link=link, text=text))
