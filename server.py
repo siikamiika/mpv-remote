@@ -4,6 +4,7 @@ from pathlib import Path
 from functools import cmp_to_key
 from subprocess import call
 import os
+import string
 from os.path import expanduser
 from threading import Thread
 import socket
@@ -11,20 +12,7 @@ if os.name == 'nt': from ctypes import windll
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
-    base = \
-"""<head>
-<meta name="viewport" content="width=device-width, user-scalable=no" />
-<style>
-body {background-color: black; color: white;}
-a:link {color: white;}
-a:visited {color: #aaaaaa}
-.folder {background-color: blue;}
-.video {background-color: green;}
-li {margin-bottom: 1em;}
-.b {text-decoration: none; background-color: blue; padding: 10px 10px 10px 10px;}
-</style>
-</head>
-"""
+    base = string.Template(open('template.html').read())
 
     commands = dict(
         playpause=b'mp.command("cycle pause")',
@@ -43,29 +31,52 @@ li {margin-bottom: 1em;}
         audio=b'mp.command("cycle audio")',
     )
 
-    controls = (base + \
-            '<div style="text-align: center; font-size: 200%; padding-top: 2em;">'
-            '<a class="b" href="/?control=vol_down">vol -</a>'
-            '<a class="b" href="/?control=mute">mute</a>'
-            '<a class="b" href="/?control=vol_up">vol +</a><br><br>'
-            '<a class="b" href="/?control=chapter_previous">ch -</a>'
-            '<a class="b" href="/?control=chapter_next">ch +</a><br><br>'
-            '<a class="b" href="/?control=back_big">&lt;&lt;</a>'
-            '<a class="b" href="/?control=back_small">&lt;</a>'
-            '&nbsp;<a class="b" href="/?control=playpause">&#9658;</a>&nbsp;'
-            '<a class="b" href="/?control=forward_small">&gt;</a>'
-            '<a class="b" href="/?control=forward_big">&gt;&gt;</a><br><br>'
-            '<a class="b" href="/?control=sub">sub</a>'
-            '<a class="b" href="/?control=audio">audio</a><br><br>'
-            '<a class="b" href="/?control=stop">exit</a>'
-            '<a class="b" href="/?control=fullscreen">full</a>'
-            '</div>'
-            )
+    controls = [
+            [
+                'vol_down|volume-down',
+                'mute|volume-off',
+                'vol_up|volume-up'
+            ],
+            [
+                'chapter_previous|chevron-down',
+                'chapter_next|chevron-up'
+            ],
+            [
+                'back_big|fast-backward',
+                'back_small|backward',
+                'playpause|play',
+                'forward_small|forward',
+                'forward_big|fast-forward'
+            ],
+            [
+                'sub|font',
+                'audio|music'
+            ],
+            [
+                'stop|eject',
+                'fullscreen|arrows-alt'
+            ]
+    ]
+
+    htmlcontrols = '<div class="remote"><div style="text-align:center;">'
+    for control in controls:
+        for item in control:
+            key = item.split('|')
+            value = key[1]
+            key = key[0]
+            htmlcontrols += '<a class="btn" href="/?control={}"><i class="fa fa-3x fa-{}"></i></a> '.format(key, value)
+        htmlcontrols += '</div><div style="text-align:center;">'
+    htmlcontrols += '</div></div>'
+
+    controls = { 'content': htmlcontrols }
+    controls = base.substitute(controls)
+
 
     def redirect(self, location):
         self.send_response(302)
         self.send_header('Location', location)
         self.end_headers()
+
 
     def respond_ok(self, data):
         self.send_response(200)
@@ -121,15 +132,17 @@ li {margin-bottom: 1em;}
                 if text.split('.')[-1] in vid_ext:
                     vid = True
                 listing.append(
-                    '<li><a class="{cls}" href="/?play={link}">{text}</a></li>'.format(
-                        cls=('video' if vid else 'file'), link=link, text=text))
+                    '<li><a class="{cls}" href="/?play={link}"><i class="{fa}"></i> {text}</a></li>'.format(
+                        cls=('video' if vid else 'file'), fa=('fa fa-file-video-o' if vid else ''), link=link, text=text))
             else:
                 listing.append(
-                    '<li><a class="folder" href="/?dir={link}/">{text}/</a></li>'.format(
+                    '<li><a class="folder" href="/?dir={link}/"><i class="fa fa-folder"></i> {text}/</a></li>'.format(
                         link=link, text=text))
         listing.append('</ul>')
-
-        self.respond_ok((self.base + ''.join(listing)).encode())
+        listing = ''.join(listing)
+        listing = self.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
+        self.respond_ok(listing.encode())
+        #self.respond_ok((self.base + ''.join(listing)).encode())
 
     def play_file(self, fpath):
         kill_mpv = dict(
