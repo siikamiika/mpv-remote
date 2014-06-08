@@ -128,7 +128,7 @@ li {margin-bottom: 1em;}
         self.respond_ok((self.base + ''.join(listing)).encode())
 
     def play_file(self, fpath):
-        call('killall -9 mpv', shell=True)
+        call('killall -9 mpv' if os.name == 'posix' else 'taskkill /f /im mpv.exe', shell=True)
         def call_mpv(fpath):
             call(['mpv', '--lua=commandbridge.lua', '--fs', '--force-window', fpath])
         Thread(target=call_mpv, args=(fpath,)).start()
