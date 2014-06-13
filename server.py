@@ -7,6 +7,7 @@ import os
 from os.path import expanduser
 from threading import Thread
 import socket
+if os.name == 'nt': from ctypes import windll
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
@@ -84,14 +85,16 @@ li {margin-bottom: 1em;}
             self.respond_notfound()
             return
         parts = str(d).split(os.sep)
-        links = '<a href="/?dir=/">(root)</a>' + os.sep.join(
+        links = '<a href="/?dir={root}">(root)</a>|'.format(
+            root='WINROOT' if os.name == 'nt' else '/')
+        links += os.sep.join(
             '<a href="/?dir={0}/">{1}</a>'.format(
                 quote(os.sep.join(parts[:i+1])), d_)
                 for i, d_ in enumerate(parts)
             )
         listing = ['<h1>{}</h1><hr><ul>'.format(links)]
 
-        def sort_cmp(a, b):
+        def sort(a, b):
             try:
                 sametype = a.is_dir() == b.is_dir()
             except Exception as e:
@@ -104,16 +107,17 @@ li {margin-bottom: 1em;}
             else:
                 return 1
 
-        for x in sorted(d.iterdir(), key=cmp_to_key(lambda x, y: sort_cmp(x,y))):
+        for x in sorted(d.iterdir(), key=cmp_to_key(lambda x, y: sort(x,y))):
             link = quote(str(x))
-            text = str(x).split('/')[-1]
+            text = str(x).split(os.sep)[-1]
             try:
                 isfile = x.is_file()
             except Exception as e:
                 isfile = True
             if isfile:
                 vid = False
-                vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv']
+                vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v',
+                           'mov', 'mpg', 'mpeg', 'wmv']
                 if text.split('.')[-1] in vid_ext:
                     vid = True
                 listing.append(
@@ -128,7 +132,11 @@ li {margin-bottom: 1em;}
         self.respond_ok((self.base + ''.join(listing)).encode())
 
     def play_file(self, fpath):
-        call('killall -9 mpv' if os.name == 'posix' else 'taskkill /f /im mpv.exe', shell=True)
+        kill_mpv = dict(
+            nt='taskkill /f /im mpv.exe',
+            posix='killall -9 mpv'
+            )
+        call(kill_mpv[os.name], shell=True)
         def call_mpv(fpath):
             call(['mpv', '--lua=commandbridge.lua', '--fs', '--force-window', fpath])
         Thread(target=call_mpv, args=(fpath,)).start()
@@ -142,7 +150,18 @@ li {margin-bottom: 1em;}
         control_command = qs_list.get('control')
 
         if dir_path:
-            self.list_dir(dir_path)
+            if dir_path == 'WINROOT' and os.name == 'nt':
+                drives = []
+                bitmask = windll.kernel32.GetLogicalDrives()
+                for letter in map(chr, range(65, 91)):
+                    if bitmask & 1:
+                        drives.append(letter)
+                    bitmask >>= 1
+                drive_link = '<a href="/?dir={drive}%3A/">{drive}:</a>'
+                drive_links = [drive_link.format(drive=d) for d in drives]
+                self.respond_ok('<br>'.join(drive_links).encode())
+            else:
+                self.list_dir(dir_path)
         elif play_path:
             self.play_file(play_path)
         elif control_command in self.commands:
