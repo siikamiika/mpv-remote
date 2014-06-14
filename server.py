@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qsl, quote
+from urllib.parse import urlparse, parse_qsl, quote, unquote
 from pathlib import Path
 from functools import cmp_to_key
 from subprocess import call
@@ -61,9 +61,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
     htmlcontrols = '<div class="remote"><div style="text-align:center;">'
     for control in controls:
         for item in control:
-            key = item.split('|')
-            value = key[1]
-            key = key[0]
+            key, value = item.split('|')
             htmlcontrols += '<a class="btn" href="/?control={}"><i class="fa fa-3x fa-{}"></i></a> '.format(key, value)
         htmlcontrols += '</div><div style="text-align:center;">'
     htmlcontrols += '</div></div>'
@@ -78,8 +76,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-    def respond_ok(self, data, content_type='text/html; charset=utf-8'):
+    def respond_ok(self, data, content_type='text/html; charset=utf-8', age=0):
         self.send_response(200)
+        self.send_header('Cache-Control', 'public, max-age={}'.format(age))
         self.send_header('Content-Type', content_type)
         self.end_headers()
         self.wfile.write(data)
@@ -95,15 +94,15 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         if not d.is_dir():
             self.respond_notfound()
             return
-        parts = str(d).split(os.sep)
-        links = '<a href="/?dir={root}">(root)</a>|'.format(
+        parts = [x for x in str(d).split(os.sep) if x]
+        nav = '<a class="navlink" href="/?dir={root}">(root)</a>|'.format(
             root='WINROOT' if os.name == 'nt' else '/')
-        links += os.sep.join(
-            '<a href="/?dir={0}/">{1}</a>'.format(
+        nav += os.sep.join(
+            '<a class="navlink" href="/?dir={0}/">{1}</a>'.format(
                 quote(os.sep.join(parts[:i+1])), d_)
                 for i, d_ in enumerate(parts)
             )
-        listing = ['<h1>{}</h1><hr><ul>'.format(links)]
+        listing = ['<h1>{}</h1><hr><ul>'.format(nav)]
 
         def sort(a, b):
             try:
@@ -129,7 +128,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 vid = False
                 vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v',
                            'mov', 'mpg', 'mpeg', 'wmv']
-                if text.split('.')[-1] in vid_ext:
+                if splitext(text)[1][1:] in vid_ext:
                     vid = True
                 listing.append(
                     '<li><a class="{cls}" href="/?play={link}"><i class="{fa}"></i> {text}</a></li>'.format(
@@ -162,17 +161,21 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         control_command = qs_list.get('control')
 
         if self.path.startswith('/static/'):
-            requested = self.path[len('/static/'):]
+            requested = unquote(self.path[len('/static/'):])
             if requested not in os.listdir('static'):
                 self.respond_notfound('file not found'.encode())
             else:
                 try:
                     with open('static/'+requested, 'rb') as f:
                         ct = {'.css': 'text/css'}
-                        self.respond_ok(f.read(), (ct.get(splitext(requested)[1]) or 'application/octet-stream'))
+                        self.respond_ok(
+                            f.read(),
+                            (ct.get(splitext(requested)[1]) or 'application/octet-stream'),
+                            315360000
+                            )
                 except Exception as e:
                     print(e)
-                    self.respond_notfound('error reading file')
+                    self.respond_notfound('error reading file'.encode())
         elif dir_path:
             if dir_path == 'WINROOT' and os.name == 'nt':
                 drives = []
