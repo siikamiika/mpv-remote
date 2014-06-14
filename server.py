@@ -5,7 +5,7 @@ from functools import cmp_to_key
 from subprocess import call
 import os
 import string
-from os.path import expanduser
+from os.path import expanduser, splitext
 from threading import Thread
 import socket
 if os.name == 'nt': from ctypes import windll
@@ -78,9 +78,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-    def respond_ok(self, data):
+    def respond_ok(self, data, content_type='text/html; charset=utf-8'):
         self.send_response(200)
-        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.send_header('Content-Type', content_type)
         self.end_headers()
         self.wfile.write(data)
 
@@ -142,7 +142,6 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         listing = ''.join(listing)
         listing = self.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
         self.respond_ok(listing.encode())
-        #self.respond_ok((self.base + ''.join(listing)).encode())
 
     def play_file(self, fpath):
         kill_mpv = dict(
@@ -162,7 +161,19 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         play_path = qs_list.get('play')
         control_command = qs_list.get('control')
 
-        if dir_path:
+        if self.path.startswith('/static/'):
+            requested = self.path[len('/static/'):]
+            if requested not in os.listdir('static'):
+                self.respond_notfound('file not found'.encode())
+            else:
+                try:
+                    with open('static/'+requested, 'rb') as f:
+                        ct = {'.css': 'text/css'}
+                        self.respond_ok(f.read(), (ct.get(splitext(requested)[1]) or 'application/octet-stream'))
+                except Exception as e:
+                    print(e)
+                    self.respond_notfound('error reading file')
+        elif dir_path:
             if dir_path == 'WINROOT' and os.name == 'nt':
                 drives = []
                 bitmask = windll.kernel32.GetLogicalDrives()
@@ -170,9 +181,10 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                     if bitmask & 1:
                         drives.append(letter)
                     bitmask >>= 1
-                drive_link = '<a href="/?dir={drive}%3A/">{drive}:</a>'
-                drive_links = [drive_link.format(drive=d) for d in drives]
-                self.respond_ok('<br>'.join(drive_links).encode())
+                drive_link = '<li><a class="folder" href="/?dir={drive}%3A/"><i class="fa fa-folder"></i> {drive}:</a></li>'
+                drive_links = '<ul>' + ''.join([drive_link.format(drive=d) for d in drives]) + '</ul>'
+                listing = self.base.substitute({'content': '<div class="listing">{}</div>'.format(drive_links)})
+                self.respond_ok(listing.encode())
             else:
                 self.list_dir(dir_path)
         elif play_path:
