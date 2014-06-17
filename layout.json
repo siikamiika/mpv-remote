@@ -8,21 +8,21 @@
             "volume-down",
             [
                "mp.command",
-               "add volume -1"
+               ["add volume -1"]
             ]
          ],
          [
             "volume-off",
             [
                "mp.command",
-               "cycle mute"
+               ["cycle mute"]
             ]
          ],
          [
             "volume-up",
             [
                "mp.command",
-               "add volume 1"
+               ["add volume 1"]
             ]
          ]
       ],
@@ -34,14 +34,14 @@
             "chevron-down",
             [
                "mp.command",
-               "add chapter -1"
+               ["add chapter -1"]
             ]
          ],
          [
             "chevron-up",
             [
                "mp.command",
-               "add chapter 1"
+               ["add chapter 1"]
             ]
          ]
       ],
@@ -53,35 +53,35 @@
             "fast-backward",
             [
                "mp.command",
-               "seek -300"
+               ["seek -300"]
             ]
          ],
          [
             "backward",
             [
                "mp.command",
-               "seek -10"
+               ["seek -10"]
             ]
          ],
          [
             "play",
             [
                "mp.command",
-               "cycle pause"
+               ["cycle pause"]
             ]
          ],
          [
             "forward",
             [
                "mp.command",
-               "seek 10"
+               ["seek 10"]
             ]
          ],
          [
             "fast-forward",
             [
                "mp.command",
-               "seek 300"
+               ["seek 300"]
             ]
          ]
       ],
@@ -93,14 +93,14 @@
             "font",
             [
                "mp.command",
-               "cycle sub"
+               ["cycle sub"]
             ]
          ],
          [
             "music",
             [
                "mp.command",
-               "cycle audio"
+               ["cycle audio"]
             ]
          ]
       ],
@@ -112,14 +112,14 @@
             "eject",
             [
                "mp.command",
-               "stop"
+               ["stop"]
             ]
          ],
          [
             "arrows-alt",
             [
                "mp.command",
-               "cycle fullscreen"
+               ["cycle fullscreen"]
             ]
          ]
       ]

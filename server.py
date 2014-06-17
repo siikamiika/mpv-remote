@@ -11,6 +11,9 @@ from threading import Thread
 import socket
 if os.name == 'nt': from ctypes import windll
 
+def lua_fn_str(fn, args):
+    return '{}({})'.format(fn, ','.join(['"{}"'.format(a) for a in args]))
+
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
     with open('template.html', 'r') as f: base = string.Template(f.read())
@@ -20,17 +23,17 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
     for row in layout['layout']:
         for button in row:
             command_list.append(button[1])
-    commands = {
-        '.'.join([f, a]):'{}("{}")'.format(f, a).encode()
-        for f, a in command_list
-    }
+    commands = {lua_fn_str(f, a) for f, a in command_list}
 
     htmlcontrols = '<div class="remote"><div style="text-align:center;">'
     for control in layout['layout']:
         for button in control:
             symbol, command = button
             btn = '<a class="btn" href="/?control={cmd}"><i class="fa fa-3x fa-{sym}"></i></a> '
-            htmlcontrols += btn.format(cmd=quote('.'.join(command)), sym=symbol)
+            htmlcontrols += btn.format(
+                cmd=quote(lua_fn_str(command[0], command[1])),
+                sym=symbol
+                )
         htmlcontrols += '</div><div style="text-align:center;">'
     htmlcontrols += '</div></div>'
 
@@ -162,9 +165,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.play_file(play_path)
         elif control_command in self.commands:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.sendto(self.commands[control_command], ('localhost', 9876))
+            s.sendto(control_command.encode(), ('localhost', 9876))
             h = 1
-            if control_command == 'mp.command.stop': h = 2
+            if control_command == 'mp.command("stop")': h = 2
             self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
         elif self.path == '/control':
             self.respond_ok(self.controls.encode())
