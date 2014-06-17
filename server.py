@@ -5,6 +5,7 @@ from functools import cmp_to_key
 from subprocess import call
 import os
 import string
+import json
 from os.path import expanduser, splitext
 from threading import Thread
 import socket
@@ -12,57 +13,24 @@ if os.name == 'nt': from ctypes import windll
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
-    base = string.Template(open('template.html').read())
+    with open('template.html', 'r') as f: base = string.Template(f.read())
+    with open('layout.json', 'r') as f: layout = json.loads(f.read())
 
-    commands = dict(
-        playpause=b'mp.command("cycle pause")',
-        chapter_next=b'mp.command("add chapter 1")',
-        chapter_previous=b'mp.command("add chapter -1")',
-        vol_up=b'mp.command("add volume 1")',
-        vol_down=b'mp.command("add volume -1")',
-        mute=b'mp.command("cycle mute")',
-        forward_small=b'mp.command("seek 10")',
-        back_small=b'mp.command("seek -10")',
-        forward_big=b'mp.command("seek 300")',
-        back_big=b'mp.command("seek -300")',
-        fullscreen=b'mp.command("cycle fullscreen")',
-        stop=b'mp.command("stop")',
-        sub=b'mp.command("cycle sub")',
-        audio=b'mp.command("cycle audio")',
-    )
-
-    controls = [
-            [
-                'vol_down|volume-down',
-                'mute|volume-off',
-                'vol_up|volume-up'
-            ],
-            [
-                'chapter_previous|chevron-down',
-                'chapter_next|chevron-up'
-            ],
-            [
-                'back_big|fast-backward',
-                'back_small|backward',
-                'playpause|play',
-                'forward_small|forward',
-                'forward_big|fast-forward'
-            ],
-            [
-                'sub|font',
-                'audio|music'
-            ],
-            [
-                'stop|eject',
-                'fullscreen|arrows-alt'
-            ]
-    ]
+    command_list = []
+    for row in layout['layout']:
+        for button in row:
+            command_list.append(button[1])
+    commands = {
+        '.'.join([f, a]):'{}("{}")'.format(f, a).encode()
+        for f, a in command_list
+    }
 
     htmlcontrols = '<div class="remote"><div style="text-align:center;">'
-    for control in controls:
-        for item in control:
-            key, value = item.split('|')
-            htmlcontrols += '<a class="btn" href="/?control={}"><i class="fa fa-3x fa-{}"></i></a> '.format(key, value)
+    for control in layout['layout']:
+        for button in control:
+            symbol, command = button
+            btn = '<a class="btn" href="/?control={cmd}"><i class="fa fa-3x fa-{sym}"></i></a> '
+            htmlcontrols += btn.format(cmd=quote('.'.join(command)), sym=symbol)
         htmlcontrols += '</div><div style="text-align:center;">'
     htmlcontrols += '</div></div>'
 
@@ -149,7 +117,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             )
         call(kill_mpv[os.name], shell=True)
         def call_mpv(fpath):
-            call(['mpv', '--lua=commandbridge.lua', '--fs', '--force-window', fpath])
+            call(['mpv', '--lua=commandbridge.lua', '--fs', fpath])
         Thread(target=call_mpv, args=(fpath,)).start()
         self.redirect('/control')
 
@@ -196,7 +164,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.sendto(self.commands[control_command], ('localhost', 9876))
             h = 1
-            if control_command == 'stop': h = 2
+            if control_command == 'mp.command.stop': h = 2
             self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
         elif self.path == '/control':
             self.respond_ok(self.controls.encode())
