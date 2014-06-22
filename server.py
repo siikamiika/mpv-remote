@@ -70,7 +70,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             root='WINROOT' if os.name == 'nt' else '/')
         nav += os.sep.join(
             '<a class="navlink" href="/?dir={0}/">{1}</a>'.format(
-                quote(os.sep.join(parts[:i+1])), d_)
+                (os.name == 'posix') * '/' + quote(os.sep.join(parts[:i+1])), d_)
                 for i, d_ in enumerate(parts)
             )
         listing = ['<h1>{}</h1><hr><ul>'.format(nav)]
