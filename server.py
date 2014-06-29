@@ -18,6 +18,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     with open('template.html', 'r') as f: base = string.Template(f.read())
     with open('layout.json', 'r') as f: layout = json.loads(f.read())
+    with open('config', 'r') as f:
+        config = ['--{}'.format(o) for o in f.read().splitlines()
+                  if '=' in o and not o.startswith('#')]
 
     command_list = []
     for row in layout['layout']:
@@ -120,7 +123,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             )
         call(kill_mpv[os.name], shell=True)
         def call_mpv(fpath):
-            call(['mpv', '--lua=commandbridge.lua', '--fs', fpath])
+            call(['mpv', '--lua=commandbridge.lua'] + self.config + [fpath])
         Thread(target=call_mpv, args=(fpath,)).start()
         self.redirect('/control')
 
