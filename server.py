@@ -95,6 +95,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 isfile = True
             if isfile:
+                function = 'play'
                 vid = False
                 vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v',
                            'mov', 'mpg', 'mpeg', 'wmv']
@@ -104,7 +105,6 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                     cls = 'video'
                     fa = 'fa fa-file-video-o'
                 else:
-                    function = 'play'
                     cls = 'file'
                     fa = ''
             else:
