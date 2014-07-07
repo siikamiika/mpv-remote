@@ -43,12 +43,10 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
     controls = { 'content': htmlcontrols }
     controls = base.substitute(controls)
 
-
     def redirect(self, location):
         self.send_response(302)
         self.send_header('Location', location)
         self.end_headers()
-
 
     def respond_ok(self, data, content_type='text/html; charset=utf-8', age=0):
         self.send_response(200)
@@ -68,13 +66,11 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         if not d.is_dir():
             self.respond_notfound()
             return
-        parts = [x for x in str(d).split(os.sep) if x]
-        nav = '<a class="navlink" href="/?dir={root}">(root)</a>|'.format(
-            root='WINROOT' if os.name == 'nt' else '/')
+        nav = '<a class="navlink" href="/?dir=WINROOT">(root)</a>|' if os.name == 'nt' else ''
         nav += os.sep.join(
-            '<a class="navlink" href="/?dir={0}/">{1}</a>'.format(
-                (os.name == 'posix') * '/' + quote(os.sep.join(parts[:i+1])), d_)
-                for i, d_ in enumerate(parts)
+            '<a class="navlink" href="/?dir={0}">{1}</a>'.format(
+                quote(str(d)), d.parts[-1])
+                for d in list(reversed(d.parents)) + [d]
             )
         listing = ['<h1>{}</h1><hr><ul>'.format(nav)]
 
@@ -104,13 +100,22 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                            'mov', 'mpg', 'mpeg', 'wmv']
                 if splitext(text)[1][1:] in vid_ext:
                     vid = True
-                listing.append(
-                    '<li><a class="{cls}" href="/?play={link}"><i class="{fa}"></i> {text}</a></li>'.format(
-                        cls=('video' if vid else 'file'), fa=('fa fa-file-video-o' if vid else ''), link=link, text=text))
+                if vid:
+                    cls = 'video'
+                    fa = 'fa fa-file-video-o'
+                else:
+                    function = 'play'
+                    cls = 'file'
+                    fa = ''
             else:
-                listing.append(
-                    '<li><a class="folder" href="/?dir={link}/"><i class="fa fa-folder"></i> {text}/</a></li>'.format(
-                        link=link, text=text))
+                function = 'dir'
+                cls = 'folder'
+                fa = 'fa fa-folder'
+            listing.append(
+                    '<li><a class="{cls}" href="/?{function}={link}"><i class="{fa}"></i> {text}</a></li>'.format(
+                        function=function, cls=cls, fa=fa, link=link, text=text
+                    )
+                )
         listing.append('</ul>')
         listing = ''.join(listing)
         listing = self.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
@@ -158,7 +163,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                     if bitmask & 1:
                         drives.append(letter)
                     bitmask >>= 1
-                drive_link = '<li><a class="folder" href="/?dir={drive}%3A/"><i class="fa fa-folder"></i> {drive}:</a></li>'
+                drive_link = '<li><a class="folder" href="/?dir={drive}%3A%5C"><i class="fa fa-folder"></i> {drive}:</a></li>'
                 drive_links = '<ul>' + ''.join([drive_link.format(drive=d) for d in drives]) + '</ul>'
                 listing = self.base.substitute({'content': '<div class="listing">{}</div>'.format(drive_links)})
                 self.respond_ok(listing.encode())

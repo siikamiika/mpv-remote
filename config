@@ -1,4 +1,4 @@
 # start in fullscreen mode
 fs=yes
-# use secondary display
-fs-screen=1
+# use primary display
+fs-screen=0
