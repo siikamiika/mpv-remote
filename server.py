@@ -6,7 +6,7 @@ from subprocess import call
 import os
 import string
 import json
-from os.path import expanduser, splitext
+from os.path import expanduser, splitext, getmtime
 from threading import Thread
 import socket
 if os.name == 'nt': from ctypes import windll
@@ -75,25 +75,35 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         listing = ['<h1>{}</h1><hr><ul>'.format(nav)]
 
         def sort(a, b):
+            def sort_file(c, d): return (str(c).lower() > str(d).lower()) - .5
             try:
-                sametype = a.is_dir() == b.is_dir()
+                a.is_dir()
+                b.is_dir()
             except Exception as e:
                 print(e)
-                sametype = True
-            if sametype:
-                return (str(a).lower() > str(b).lower())*2 - 1
-            elif a.is_dir():
-                return -1
+                return sort_file(a, b)
+            if a.is_dir():
+                if b.is_dir():
+                    return (getmtime(str(a)) < getmtime(str(b))) - .5
+                else:
+                    return -1
+            elif a.is_file():
+                if b.is_file():
+                    return sort_file(a, b)
+                else:
+                    return 1
             else:
-                return 1
+                return sort_file(a, b)
 
-        for x in sorted(d.iterdir(), key=cmp_to_key(lambda x, y: sort(x,y))):
-            link = quote(str(x))
+        for x in sorted(d.iterdir(), key=cmp_to_key(sort)):
             text = str(x).split(os.sep)[-1]
+            if text.startswith('.'): continue
+            link = quote(str(x))
             try:
                 isfile = x.is_file()
+                isdir = x.is_dir()
             except Exception as e:
-                isfile = True
+                continue
             if isfile:
                 function = 'play'
                 vid = False
@@ -107,10 +117,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 else:
                     cls = 'file'
                     fa = ''
-            else:
+            elif isdir:
                 function = 'dir'
                 cls = 'folder'
                 fa = 'fa fa-folder'
+            else:
+                continue
             listing.append(
                     '<li><a class="{cls}" href="/?{function}={link}"><i class="{fa}"></i> {text}</a></li>'.format(
                         function=function, cls=cls, fa=fa, link=link, text=text
