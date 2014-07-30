@@ -1,4 +1,4 @@
 # start in fullscreen mode
 fs=yes
-# use primary display
-fs-screen=0
+# use tv
+fs-screen=2
