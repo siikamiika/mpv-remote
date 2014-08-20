@@ -64,6 +64,11 @@ class DirectoryViewer(object):
 
     def generate_content_links(self):
         content = []
+        content.append('<li><a class="file" href="/?play={all}">'
+                       '<i class="fa fa-asterisk"></i> (play all)</a></li>'.format(
+                            all=quote(str(self.path / '*'))
+                        )
+                    )
         for x in sorted(self.path.iterdir(), key=cmp_to_key(self.sort_compare)):
             text = str(x).split(os.sep)[-1]
             if text.startswith('.'): continue

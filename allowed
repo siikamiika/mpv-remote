@@ -1,9 +1,11 @@
 vol_down=mp.command("add volume -1")
-toggle_drc=file=toggle_drc.lua
 vol_mute=mp.command("cycle mute")
+toggle_drc=file=toggle_drc.lua
 vol_up=mp.command("add volume 1")
+pl_prev=mp.command("playlist_prev")
 ch_prev=mp.command("add chapter -1")
 ch_next=mp.command("add chapter 1")
+pl_next=mp.command("playlist_next")
 rev_long=mp.command("seek -300")
 rev_short=mp.command("seek -10")
 playpause=mp.command("cycle pause")
