@@ -105,7 +105,14 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
     with open('template.html', 'r') as f: base = string.Template(f.read())
     with open('buttons.html', 'r') as f: buttons = f.read()
     with open('allowed', 'r') as f:
-        commands = [c for c in f.read().splitlines() if c]
+        commands = dict()
+        for c in f.read().splitlines():
+            if not c: continue
+            cname, command = c.split('=', 1)
+            if command.startswith('file='):
+                with open(command[len('file='):], 'r') as sf:
+                    command = sf.read()
+            commands[cname] = command
     with open('config', 'r') as f:
         config = ['--{}'.format(o) for o in f.read().splitlines()
                   if '=' in o and not o.startswith('#')]
@@ -146,7 +153,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             )
         call(kill_mpv[os.name], shell=True)
         def call_mpv(fpath):
-            call(['mpv', '--lua=commandbridge.lua'] + self.config + [fpath])
+            call(['mpv', '--lua=commandbridge.lua'] + self.config + ['--', fpath])
         Thread(target=call_mpv, args=(fpath,)).start()
         self.redirect('/control')
 
@@ -188,7 +195,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         elif play_path:
             self.play_file(play_path)
         elif control_command in self.commands:
-            self.control_mpv(control_command)
+            self.control_mpv(self.commands[control_command])
         elif self.path == '/control':
             self.respond_ok(self.controls.encode())
         elif self.path == '/':
