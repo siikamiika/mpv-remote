@@ -1,35 +1,55 @@
 <div class="remote">
     <!-- volume controls -->
-    <div style="text-align:center;">
-        <a class="btn" href="/?control=vol_down"><i class="fa fa-3x fa-volume-down"></i></a>
-        <a class="btn" href="/?control=vol_mute"><i class="fa fa-3x fa-volume-off"></i></a>
-        <a class="btn" href="/?control=toggle_drc"><i class="fa fa-3x fa-compress"></i></a>
-        <a class="btn" href="/?control=vol_up"><i class="fa fa-3x fa-volume-up"></i></a>
-    </div>
+    <table>
+        <tr>
+            <td style="width: 10%;"></td>
+            <td><a href="/?control=vol_down"><i class="fa fa-volume-down"></i></a></td>
+            <td><a href="/?control=vol_up"><i class="fa fa-volume-up"></i></a></td>
+            <td><a href="/?control=toggle_drc"><i class="fa fa-compress"></i></a></td>
+            <td><a href="/?control=vol_mute"><i class="fa fa-volume-off"></i></a></td>
+            <td style="width: 10%;"></td>
+        </tr>
+    </table>
     <!-- chapter and playlist controls -->
-    <div style="text-align:center;">
-        <a class="btn" href="/?control=pl_prev"><i class="fa fa-3x fa-chevron-left"></i></a>
-        <a class="btn" href="/?control=ch_prev"><i class="fa fa-3x fa-chevron-down"></i></a>
-        <a class="btn" href="/?control=ch_next"><i class="fa fa-3x fa-chevron-up"></i></a>
-        <a class="btn" href="/?control=pl_next"><i class="fa fa-3x fa-chevron-right"></i></a>
-    </div>
+    <table>
+        <tr>
+            <td style="width: 10%;"></td>
+            <td><a href="/?control=ch_prev"><i class="fa fa-chevron-down"></i></a></td>
+            <td><a href="/?control=ch_next"><i class="fa fa-chevron-up"></i></a></td>
+            <td><a href="/?control=pl_prev"><i class="fa fa-chevron-left"></i></a></td>
+            <td><a href="/?control=pl_next"><i class="fa fa-chevron-right"></i></a></td>
+            <td style="width: 10%;"></td>
+        </tr>
+    </table>
     <!-- seeking and pausing -->
-    <div style="text-align:center;">
-        <a class="btn" href="/?control=rev_long"><i class="fa fa-3x fa-fast-backward"></i></a>
-        <a class="btn" href="/?control=rev_short"><i class="fa fa-3x fa-backward"></i></a>
-        <a class="btn" href="/?control=playpause"><i class="fa fa-3x fa-play"></i></a>
-        <a class="btn" href="/?control=fw_short"><i class="fa fa-3x fa-forward"></i></a>
-        <a class="btn" href="/?control=fw_long"><i class="fa fa-3x fa-fast-forward"></i></a>
-    </div>
-    <!-- change subtitle or audio track -->
-    <div style="text-align:center;">
-        <a class="btn" href="/?control=sub"><i class="fa fa-3x fa-font"></i></a>
-        <a class="btn" href="/?control=audio"><i class="fa fa-3x fa-music"></i></a>
-    </div>
+    <table>
+        <tr>
+            <td><a href="/?control=rev_long"><i class="fa fa-fast-backward"></i></a></td>
+            <td><a href="/?control=rev_short"><i class="fa fa-backward"></i></a></td>
+            <td><a href="/?control=playpause"><i class="fa fa-play"></i></a></td>
+            <td><a href="/?control=fw_short"><i class="fa fa-forward"></i></a></td>
+            <td><a href="/?control=fw_long"><i class="fa fa-fast-forward"></i></a></td>
+        </tr>
+    </table>
+    <!-- change/adjust subtitle or audio track -->
+    <table>
+        <tr>
+            <td style="width: 10%;"></td>
+            <td class="buttonhighlight"><a href="/?control=subdelay_minus"><i class="fa fa-minus"></i></a></td>
+            <td class="buttonhighlight"><a href="/?control=sub"><i class="fa fa-font"></i></a></td>
+            <td class="buttonhighlight"><a href="/?control=subdelay_plus"><i class="fa fa-plus"></i></a></td>
+            <td><a href="/?control=audio"><i class="fa fa-music"></i></a></td>
+            <td style="width: 10%;"></td>
+        </tr>
+    </table>
     <!-- misc -->
-    <div style="text-align:center;">
-        <a class="btn" href="/?control=stop"><i class="fa fa-3x fa-eject"></i></a>
-        <a class="btn" href="/?control=info"><i class="fa fa-3x fa-info"></i></a>
-        <a class="btn" href="/?control=fs"><i class="fa fa-3x fa-arrows-alt"></i></a>
-    </div>
+    <table>
+        <tr>
+            <td style="width: 20%;"></td>
+            <td><a href="/?control=stop"><i class="fa fa-eject"></i></a></td>
+            <td><a href="/?control=info"><i class="fa fa-info"></i></a></td>
+            <td><a href="/?control=fs"><i class="fa fa-arrows-alt"></i></a></td>
+            <td style="width: 20%;"></td>
+        </tr>
+    </table>
 </div>
