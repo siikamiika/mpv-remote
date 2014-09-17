@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qsl, quote, unquote
 from pathlib import Path
 from functools import cmp_to_key
-from subprocess import call, Popen, PIPE
+from subprocess import Popen, PIPE
 import os
 import string
 from os.path import expanduser, splitext, getmtime
@@ -161,7 +161,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             MpvRequestHandler.mpv_process.stdin.write(b'quit\n')
             MpvRequestHandler.mpv_process.kill()
         except Exception as e: print(e)
-        cmd = [mpv_executable, '--input-file=/dev/stdin'] + self.config + ['--', fpath]
+        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin'] + self.config + ['--', fpath]
         MpvRequestHandler.mpv_process = Popen(cmd, stdin=PIPE)
 
 
