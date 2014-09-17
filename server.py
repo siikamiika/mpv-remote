@@ -2,13 +2,16 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qsl, quote, unquote
 from pathlib import Path
 from functools import cmp_to_key
-from subprocess import call
+from subprocess import call, Popen, PIPE
 import os
 import string
 from os.path import expanduser, splitext, getmtime
 from threading import Thread
 import socket
-if os.name == 'nt': from ctypes import windll
+mpv_executable = 'mpv'
+if os.name == 'nt':
+    mpv_executable = 'mpv.com'
+    from ctypes import windll
 
 class DirectoryViewer(object):
 
@@ -107,9 +110,11 @@ class DirectoryViewer(object):
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
+    mpv_process = None
+
     with open('template.html', 'r') as f: base = string.Template(f.read())
     with open('buttons.html', 'r') as f: buttons = f.read()
-    with open('allowed', 'r') as f:
+    with open('commands', 'r') as f:
         commands = dict()
         for c in f.read().splitlines():
             if not c: continue
@@ -152,15 +157,13 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.respond_ok(listing.encode())
 
     def play_file(self, fpath):
-        kill_mpv = dict(
-            nt='taskkill /f /im mpv.exe',
-            posix='killall -9 mpv'
-            )
-        call(kill_mpv[os.name], shell=True)
-        def call_mpv(fpath):
-            call(['mpv', '--lua=commandbridge.lua'] + self.config + ['--', fpath])
-        Thread(target=call_mpv, args=(fpath,)).start()
-        self.redirect('/control')
+        try:
+            MpvRequestHandler.mpv_process.stdin.write(b'quit\n')
+            MpvRequestHandler.mpv_process.kill()
+        except Exception as e: print(e)
+        cmd = [mpv_executable, '--input-file=/dev/stdin'] + self.config + ['--', fpath]
+        MpvRequestHandler.mpv_process = Popen(cmd, stdin=PIPE)
+
 
     def serve_static(self):
         requested = unquote(self.path[len('/static/'):])
@@ -180,10 +183,13 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 self.respond_notfound('error reading file'.encode())
 
     def control_mpv(self, command):
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.sendto(command.encode(), ('localhost', 9876))
+        try:
+            mpv_stdin = MpvRequestHandler.mpv_process.stdin
+            mpv_stdin.write((command + '\n').encode())
+            mpv_stdin.flush()
+        except Exception as e: print(e)
         h = 1
-        if command == 'mp.command("stop")': h = 2
+        if command == 'quit': h = 2
         self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
 
     def do_GET(self):
@@ -199,10 +205,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.list_dir(dir_path)
         elif play_path:
             self.play_file(play_path)
+            self.respond_ok(self.controls.encode())
         elif control_command in self.commands:
             self.control_mpv(self.commands[control_command])
-        elif self.path == '/control':
-            self.respond_ok(self.controls.encode())
         elif self.path == '/':
             homedir = expanduser('~')
             self.redirect('/?dir='+quote(homedir))

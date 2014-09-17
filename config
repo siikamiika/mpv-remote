@@ -1,6 +1,6 @@
 # start in fullscreen mode
 fs=yes
 # use tv
-fs-screen=2
+fs-screen=1
 # start audio files in a window as well
 force-window=yes

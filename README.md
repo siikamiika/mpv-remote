@@ -3,7 +3,7 @@ mpv-remote
 
 Deployment
 ----------
-Should work by running python3 server.py if you have mpv installed (on Windows this means having mpv.exe in your PATH)
+Should work by running python3 server.py if you have mpv installed (on Windows this means having mpv.com in your PATH)
 
 
 If you're having problems with it, try deleting/renaming mpv config files or building the latest git version.
