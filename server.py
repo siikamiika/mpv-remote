@@ -13,6 +13,13 @@ if os.name == 'nt':
     mpv_executable = 'mpv.com'
     from ctypes import windll
 
+class MpvServer(HTTPServer):
+
+    def __init__(self, *args, **kwargs):
+        super(__class__, self).__init__(*args, **kwargs)
+        self.mpv_process = None
+
+
 class DirectoryViewer(object):
 
     def __init__(self, path):
@@ -110,8 +117,6 @@ class DirectoryViewer(object):
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
-    mpv_process = None
-
     with open('template.html', 'r') as f: base = string.Template(f.read())
     with open('buttons.html', 'r') as f: buttons = f.read()
     with open('commands', 'r') as f:
@@ -158,11 +163,11 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def play_file(self, fpath):
         try:
-            MpvRequestHandler.mpv_process.stdin.write(b'quit\n')
-            MpvRequestHandler.mpv_process.kill()
+            self.server.mpv_process.stdin.write(b'quit\n')
+            self.server.mpv_process.kill()
         except Exception as e: print(e)
         cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin'] + self.config + ['--', fpath]
-        MpvRequestHandler.mpv_process = Popen(cmd, stdin=PIPE)
+        self.server.mpv_process = Popen(cmd, stdin=PIPE)
 
 
     def serve_static(self):
@@ -184,7 +189,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def control_mpv(self, command):
         try:
-            mpv_stdin = MpvRequestHandler.mpv_process.stdin
+            mpv_stdin = self.server.mpv_process.stdin
             mpv_stdin.write((command + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
@@ -214,6 +219,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         else:
             self.respond_notfound()
 
+
 if __name__ == '__main__':
-    srv = HTTPServer(('', 9876), MpvRequestHandler)
+    srv = MpvServer(('', 9876), MpvRequestHandler)
     srv.serve_forever()
