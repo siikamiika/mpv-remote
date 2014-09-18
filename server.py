@@ -8,6 +8,7 @@ import string
 from os.path import expanduser, splitext, getmtime
 from threading import Thread
 import socket
+from base64 import standard_b64encode
 mpv_executable = 'mpv'
 if os.name == 'nt':
     mpv_executable = 'mpv.com'
@@ -131,9 +132,19 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
     with open('config', 'r') as f:
         config = ['--{}'.format(o) for o in f.read().splitlines()
                   if '=' in o and not o.startswith('#')]
+    if os.path.isfile('login'):
+        with open('login', 'rb') as f:
+            login = standard_b64encode(f.read().strip())
+            login = 'Basic {}'.format(login.decode())
+    else: login = False
 
     controls = { 'content': buttons }
     controls = base.substitute(controls)
+
+    def ask_auth(self):
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm="mpv-remote"')
+        self.end_headers()
 
     def redirect(self, location):
         self.send_response(302)
@@ -198,6 +209,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
 
     def do_GET(self):
+
+        if self.login:
+            if self.headers.get('Authorization') == self.login:
+                pass
+            else:
+                return self.ask_auth()
 
         qs_list = dict(parse_qsl(urlparse(self.path).query))
         dir_path = qs_list.get('dir')
