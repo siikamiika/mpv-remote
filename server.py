@@ -6,20 +6,17 @@ from subprocess import Popen, PIPE
 import os
 import string
 from os.path import expanduser, splitext, getmtime
-from threading import Thread
-import socket
 from base64 import standard_b64encode
+import html
 mpv_executable = 'mpv'
 if os.name == 'nt':
     mpv_executable = 'mpv.com'
-    from ctypes import windll
 
-class MpvServer(HTTPServer):
-
-    def __init__(self, *args, **kwargs):
-        super(__class__, self).__init__(*args, **kwargs)
+class MpvProcess(object):
+    def __init__(self):
         self.mpv_process = None
 
+class MpvServer(HTTPServer, MpvProcess): pass
 
 class DirectoryViewer(object):
 
@@ -34,20 +31,16 @@ class DirectoryViewer(object):
                 )
 
     def list_windows_drives(self):
-        drives = []
-        bitmask = windll.kernel32.GetLogicalDrives()
-        for letter in map(chr, range(65, 91)):
-            if bitmask & 1:
-                drives.append(letter)
-            bitmask >>= 1
-        drive_link = '<li><a class="folder" href="/?dir={drive}%3A%5C"><i class="fa fa-folder"></i> {drive}:</a></li>'
-        return '<ul>' + ''.join([drive_link.format(drive=d) for d in drives]) + '</ul>'
+        drives = ['{}:\\'.format(letter) for letter in map(chr, range(65, 91))]
+        drives = filter(os.path.isdir, drives)
+        drive_link = '<li><a class="folder" href="/?dir={link}"><i class="fa fa-folder"></i> {text}</a></li>'
+        return '<ul>' + ''.join([drive_link.format(link=quote(d), text=d) for d in drives]) + '</ul>'
 
     def generate_navigation_links(self):
         navlinks = '<a class="navlink" href="/?dir=WINROOT">(root)</a>|' if os.name == 'nt' else ''
         navlinks += os.sep.join(
             '<a class="navlink" href="/?dir={0}">{1}</a>'.format(
-                quote(str(d)), d.parts[-1])
+                quote(str(d)), html.escape(d.parts[-1]))
                 for d in list(reversed(self.path.parents)) + [self.path]
             )
         return navlinks
@@ -80,7 +73,13 @@ class DirectoryViewer(object):
                             all=quote(str(self.path / '*'))
                         )
                     )
-        for x in sorted(self.path.iterdir(), key=cmp_to_key(self.sort_compare)):
+        valid_items = []
+        for i in self.path.iterdir():
+            try:
+                if i.exists(): valid_items.append(i)
+            except Exception as e:
+                print(e)
+        for x in sorted(valid_items, key=cmp_to_key(self.sort_compare)):
             text = str(x).split(os.sep)[-1]
             if text.startswith('.'): continue
             link = quote(str(x))
@@ -110,7 +109,7 @@ class DirectoryViewer(object):
                 continue
             content.append(
                     '<li><a class="{cls}" href="/?{function}={link}"><i class="{fa}"></i> {text}</a></li>'.format(
-                        function=function, cls=cls, fa=fa, link=link, text=text
+                        function=function, cls=cls, fa=fa, link=link, text=html.escape(text)
                     )
                 )
         return ''.join(content)
@@ -136,7 +135,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         with open('login', 'rb') as f:
             login = standard_b64encode(f.read().strip())
             login = 'Basic {}'.format(login.decode())
-    else: login = False
+    else: login = None
 
     controls = { 'content': buttons }
     controls = base.substitute(controls)
