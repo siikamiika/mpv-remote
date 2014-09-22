@@ -5,7 +5,7 @@ from functools import cmp_to_key
 from subprocess import Popen, PIPE
 import os
 import string
-from os.path import expanduser, splitext, getmtime
+from os.path import expanduser, splitext
 from base64 import standard_b64encode
 import html
 mpv_executable = 'mpv'
@@ -46,25 +46,16 @@ class DirectoryViewer(object):
         return navlinks
 
     def sort_compare(self, a, b):
-        def two_files(c, d): return (str(c).lower() > str(d).lower()) - .5
-        try:
-            a.is_dir()
-            b.is_dir()
-        except Exception as e:
-            print(e)
-            return two_files(a, b)
         if a.is_dir():
             if b.is_dir():
-                return (getmtime(str(a)) < getmtime(str(b))) - .5
+                return (a.stat().st_mtime < b.stat().st_mtime) - .5
             else:
                 return -1
         elif a.is_file():
             if b.is_file():
-                return two_files(a, b)
+                return (str(a).lower() > str(b).lower()) - .5
             else:
                 return 1
-        else:
-            return two_files(a, b)
 
     def generate_content_links(self):
         content = []
@@ -80,28 +71,18 @@ class DirectoryViewer(object):
             except Exception as e:
                 print(e)
         for x in sorted(valid_items, key=cmp_to_key(self.sort_compare)):
-            text = str(x).split(os.sep)[-1]
-            if text.startswith('.'): continue
-            link = quote(str(x))
-            try:
-                isfile = x.is_file()
-                isdir = x.is_dir()
-            except Exception as e:
-                continue
-            if isfile:
+            if x.parts[-1].startswith('.'): continue
+            if x.is_file():
                 function = 'play'
-                vid = False
                 vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v',
                            'mov', 'mpg', 'mpeg', 'wmv']
-                if splitext(text)[1][1:] in vid_ext:
-                    vid = True
-                if vid:
+                if x.suffix[1:] in vid_ext:
                     cls = 'video'
                     fa = 'fa fa-file-video-o'
                 else:
                     cls = 'file'
                     fa = ''
-            elif isdir:
+            elif x.is_dir():
                 function = 'dir'
                 cls = 'folder'
                 fa = 'fa fa-folder'
@@ -109,7 +90,7 @@ class DirectoryViewer(object):
                 continue
             content.append(
                     '<li><a class="{cls}" href="/?{function}={link}"><i class="{fa}"></i> {text}</a></li>'.format(
-                        function=function, cls=cls, fa=fa, link=link, text=html.escape(text)
+                        function=function, cls=cls, fa=fa, link=quote(str(x)), text=html.escape(x.parts[-1])
                     )
                 )
         return ''.join(content)
