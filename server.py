@@ -51,8 +51,8 @@ class DirectoryViewer(object):
                 return (a.stat().st_mtime < b.stat().st_mtime) - .5
             else:
                 return -1
-        elif a.is_file():
-            if b.is_file():
+        else:
+            if not b.is_dir():
                 return (str(a).lower() > str(b).lower()) - .5
             else:
                 return 1
