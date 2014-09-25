@@ -33,13 +33,13 @@ class DirectoryViewer(object):
     def list_windows_drives(self):
         drives = ['{}:\\'.format(letter) for letter in map(chr, range(65, 91))]
         drives = filter(os.path.isdir, drives)
-        drive_link = '<li><a class="folder" href="/?dir={link}"><i class="fa fa-folder"></i> {text}</a></li>'
+        drive_link = '<li><a class="folder" href="/dir?path={link}"><i class="fa fa-folder"></i> {text}</a></li>'
         return '<ul>' + ''.join([drive_link.format(link=quote(d), text=d) for d in drives]) + '</ul>'
 
     def generate_navigation_links(self):
-        navlinks = '<a class="navlink" href="/?dir=WINROOT">(root)</a>|' if os.name == 'nt' else ''
+        navlinks = '<a class="navlink" href="/dir?path=WINROOT">(root)</a>|' if os.name == 'nt' else ''
         navlinks += os.sep.join(
-            '<a class="navlink" href="/?dir={0}">{1}</a>'.format(
+            '<a class="navlink" href="/dir?path={0}">{1}</a>'.format(
                 quote(str(d)), html.escape(d.parts[-1]))
                 for d in list(reversed(self.path.parents)) + [self.path]
             )
@@ -52,14 +52,14 @@ class DirectoryViewer(object):
             else:
                 return -1
         else:
-            if not b.is_dir():
-                return (str(a).lower() > str(b).lower()) - .5
-            else:
+            if b.is_dir():
                 return 1
+            else:
+                return (str(a).lower() > str(b).lower()) - .5
 
     def generate_content_links(self):
         content = []
-        content.append('<li><a class="file" href="/?play={all}">'
+        content.append('<li><a class="file" href="/play?path={all}">'
                        '<i class="fa fa-asterisk"></i> (play all)</a></li>'.format(
                             all=quote(str(self.path / '*'))
                         )
@@ -89,7 +89,7 @@ class DirectoryViewer(object):
             else:
                 continue
             content.append(
-                    '<li><a class="{cls}" href="/?{function}={link}"><i class="{fa}"></i> {text}</a></li>'.format(
+                    '<li><a class="{cls}" href="/{function}?path={link}"><i class="{fa}"></i> {text}</a></li>'.format(
                         function=function, cls=cls, fa=fa, link=quote(str(x)), text=html.escape(x.parts[-1])
                     )
                 )
@@ -196,23 +196,21 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             else:
                 return self.ask_auth()
 
-        qs_list = dict(parse_qsl(urlparse(self.path).query))
-        dir_path = qs_list.get('dir')
-        play_path = qs_list.get('play')
-        control_command = qs_list.get('control')
+        url = urlparse(self.path)
+        qs_list = dict(parse_qsl(url.query))
 
         if self.path.startswith('/static/'):
             self.serve_static()
-        elif dir_path:
-            self.list_dir(dir_path)
-        elif play_path:
-            self.play_file(play_path)
+        elif url.path == '/dir' and qs_list.get('path'):
+            self.list_dir(qs_list['path'])
+        elif url.path == '/play' and qs_list.get('path'):
+            self.play_file(qs_list['path'])
             self.respond_ok(self.controls.encode())
-        elif control_command in self.commands:
-            self.control_mpv(self.commands[control_command])
+        elif url.path == '/control' and qs_list.get('command') in self.commands:
+            self.control_mpv(self.commands[qs_list['command']])
         elif self.path == '/':
             homedir = expanduser('~')
-            self.redirect('/?dir='+quote(homedir))
+            self.redirect('/dir?path='+quote(homedir))
         else:
             self.respond_notfound()
 
