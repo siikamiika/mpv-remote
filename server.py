@@ -21,29 +21,11 @@ class MpvServer(HTTPServer, MpvProcess): pass
 class DirectoryViewer(object):
 
     def __init__(self, path):
-        if path == 'WINROOT' and os.name == 'nt':
-            self.as_html = self.list_windows_drives()
-        else:
-            self.path = Path(path)
-            self.as_html = '<h1>{nav_links}</h1><hr><ul>{cont_links}</ul>'.format(
-                    nav_links=self.generate_navigation_links(),
-                    cont_links=self.generate_content_links(),
-                )
-
-    def list_windows_drives(self):
-        drives = ['{}:\\'.format(letter) for letter in map(chr, range(65, 91))]
-        drives = filter(os.path.isdir, drives)
-        drive_link = '<li><a class="folder" href="/dir?path={link}"><i class="fa fa-folder"></i> {text}</a></li>'
-        return '<ul>' + ''.join([drive_link.format(link=quote(d), text=d) for d in drives]) + '</ul>'
-
-    def generate_navigation_links(self):
-        navlinks = '<a class="navlink" href="/dir?path=WINROOT">(root)</a>|' if os.name == 'nt' else ''
-        navlinks += os.sep.join(
-            '<a class="navlink" href="/dir?path={0}">{1}</a>'.format(
-                quote(str(d)), html.escape(d.parts[-1]))
-                for d in list(reversed(self.path.parents)) + [self.path]
+        self.path = Path(path)
+        self.as_html = '<h1>{nav_links}</h1><hr><ul>{cont_links}</ul>'.format(
+                nav_links=self.generate_navigation_links(),
+                cont_links=self.generate_content_links(),
             )
-        return navlinks
 
     def sort_compare(self, a, b):
         if a.is_dir():
@@ -57,13 +39,10 @@ class DirectoryViewer(object):
             else:
                 return (str(a).lower() > str(b).lower()) - .5
 
-    def generate_content_links(self):
+    def list_directory(self):
+        if str(self.path) == 'WINROOT':
+            return self.list_windows_drives()
         content = []
-        content.append('<li><a class="file" href="/play?path={all}">'
-                       '<i class="fa fa-asterisk"></i> (play all)</a></li>'.format(
-                            all=quote(str(self.path / '*'))
-                        )
-                    )
         valid_items = []
         for i in self.path.iterdir():
             try:
@@ -73,24 +52,53 @@ class DirectoryViewer(object):
         for x in sorted(valid_items, key=cmp_to_key(self.sort_compare)):
             if x.parts[-1].startswith('.'): continue
             if x.is_file():
-                function = 'play'
-                vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v',
-                           'mov', 'mpg', 'mpeg', 'wmv']
+                do = 'play'
+                vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv']
                 if x.suffix[1:] in vid_ext:
-                    cls = 'video'
-                    fa = 'fa fa-file-video-o'
+                    filetype = 'video'
                 else:
-                    cls = 'file'
-                    fa = ''
+                    filetype = 'file'
             elif x.is_dir():
-                function = 'dir'
-                cls = 'folder'
-                fa = 'fa fa-folder'
-            else:
-                continue
+                do = 'dir'
+                filetype = 'folder'
+            else: continue
+            content.append((str(x), x.parts[-1], do, filetype))
+
+        return content
+
+    def list_windows_drives(self):
+        drives = ['{}:\\'.format(letter) for letter in map(chr, range(65, 91))]
+        drives = filter(os.path.isdir, drives)
+        return [(d, d, 'dir', 'folder') for d in drives]
+
+    def generate_navigation_links(self):
+        navlinks = '<a class="navlink" href="/dir?path=WINROOT">(root)</a>|' if os.name == 'nt' else ''
+        try:
+            navlinks += os.sep.join(
+                '<a class="navlink" href="/dir?path={0}">{1}</a>'.format(
+                    quote(str(d)), html.escape(d.parts[-1]))
+                    for d in list(reversed(self.path.parents)) + [self.path]
+                )
+        except Exception as e:
+            print(e)
+        return navlinks
+
+    def generate_content_links(self):
+        content = []
+        content.append('<li><a class="file" href="/play?path={all}">'
+                       '<i class="fa fa-asterisk"></i> (play all)</a></li>'.format(
+                            all=quote(str(self.path / '*'))
+                        )
+                    )
+        fa = dict(
+            video='fa fa-file-video-o',
+            file='',
+            folder='fa fa-folder',
+            )
+        for x in self.list_directory():
             content.append(
-                    '<li><a class="{cls}" href="/{function}?path={link}"><i class="{fa}"></i> {text}</a></li>'.format(
-                        function=function, cls=cls, fa=fa, link=quote(str(x)), text=html.escape(x.parts[-1])
+                    '<li><a class="{cls}" href="/{do}?path={link}"><i class="{fa}"></i> {text}</a></li>'.format(
+                        do=x[2], cls=x[3], fa=fa[x[3]], link=quote(x[0]), text=html.escape(x[1])
                     )
                 )
         return ''.join(content)
