@@ -2,12 +2,21 @@
     <!-- volume controls -->
     <table>
         <tr>
-            <td style="width: 10%;"></td>
-            <td><a href="/control?command=vol_down"><i class="fa fa-volume-down"></i></a></td>
-            <td><a href="/control?command=vol_up"><i class="fa fa-volume-up"></i></a></td>
+            <td><i class="fa fa-volume-up"></i></td>
+            <td style="width: 60%;">
+                <form action="/control" method="get">
+                    <input type="hidden" name="command" value="vol_set">
+                    <input
+                        onChange="javascript: this.form.submit()"
+                        style="width: 100%;"
+                        type="range"
+                        step="1"
+                        min="0"
+                        max="100"
+                        name="val">
+                </form>
+            </td>
             <td><a href="/control?command=toggle_drc"><i class="fa fa-compress"></i></a></td>
-            <td><a href="/control?command=vol_mute"><i class="fa fa-volume-off"></i></a></td>
-            <td style="width: 10%;"></td>
         </tr>
     </table>
     <!-- chapter and playlist controls -->

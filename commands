@@ -1,3 +1,4 @@
+vol_set=set volume {}
 vol_down=add volume -1
 vol_mute=cycle mute
 toggle_drc=af toggle drc

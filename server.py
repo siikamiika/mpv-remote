@@ -186,10 +186,15 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 print(e)
                 self.respond_notfound('error reading file'.encode())
 
-    def control_mpv(self, command):
+    def control_mpv(self, command, val):
+        if type(val) == str:
+            try:
+                val = val.splitlines()[0]
+            except IndexError:
+                pass
         try:
             mpv_stdin = self.server.mpv_process.stdin
-            mpv_stdin.write((command + '\n').encode())
+            mpv_stdin.write((command.format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
         h = 1
@@ -215,7 +220,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.play_file(qs_list['path'])
             self.respond_ok(self.controls.encode())
         elif url.path == '/control' and qs_list.get('command') in self.commands:
-            self.control_mpv(self.commands[qs_list['command']])
+            self.control_mpv(self.commands[qs_list['command']], qs_list.get('val'))
         elif self.path == '/':
             homedir = expanduser('~')
             self.redirect('/dir?path='+quote(homedir))
