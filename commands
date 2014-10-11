@@ -1,8 +1,5 @@
 vol_set=set volume {}
-vol_down=add volume -1
-vol_mute=cycle mute
 toggle_drc=af toggle drc
-vol_up=add volume 1
 pl_prev=playlist_prev
 ch_prev=add chapter -1
 ch_next=add chapter 1

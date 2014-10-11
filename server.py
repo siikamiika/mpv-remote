@@ -186,19 +186,33 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 print(e)
                 self.respond_notfound('error reading file'.encode())
 
-    def control_mpv(self, command, val):
+    def command_processor(self, command, val):
         if type(val) == str:
             try:
                 val = val.splitlines()[0]
             except IndexError:
                 pass
+        if command == 'vol_set':
+            try:
+                val = int(val)
+                if val == 0:
+                    pass
+                else:
+                    val = 100 ** (val / 100)
+            except Exception as e:
+                print(e)
+        return command, val
+
+    def control_mpv(self, command, val):
+        command, val = self.command_processor(command, val)
+        print(command, val)
         try:
             mpv_stdin = self.server.mpv_process.stdin
-            mpv_stdin.write((command.format(val) + '\n').encode())
+            mpv_stdin.write((self.commands[command].format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
         h = 1
-        if command == 'quit': h = 2
+        if command == 'stop': h = 2
         self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
 
     def do_GET(self):
@@ -220,7 +234,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.play_file(qs_list['path'])
             self.respond_ok(self.controls.encode())
         elif url.path == '/control' and qs_list.get('command') in self.commands:
-            self.control_mpv(self.commands[qs_list['command']], qs_list.get('val'))
+            self.control_mpv(qs_list.get('command'), qs_list.get('val'))
         elif self.path == '/':
             homedir = expanduser('~')
             self.redirect('/dir?path='+quote(homedir))
