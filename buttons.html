@@ -4,10 +4,11 @@
         <tr>
             <td><i class="fa fa-volume-up"></i></td>
             <td style="width: 60%;">
-                <form action="/control" method="get">
+                <form name="setvol" action="/control" method="get">
                     <input type="hidden" name="command" value="vol_set">
                     <input
-                        onChange="javascript: this.form.submit()"
+                        id="vol"
+                        onChange="javascript: set_and_save_volume()"
                         style="width: 100%;"
                         type="range"
                         step="1"
@@ -62,3 +63,24 @@
         </tr>
     </table>
 </div>
+<script type="text/javascript">
+function set_and_save_volume () {
+    var vol = document.getElementById('vol').value;
+    document.cookie = 'volume=' + vol + '; max-age=31536000; ';
+    document.setvol.submit();
+}
+
+function get_volume () {
+    var vol = ('; ' + document.cookie).match(/; volume=(.*?)(;|$)/);
+    console.log(vol);
+    if (!vol) {
+        vol = 50;
+    }
+    else {
+        vol = vol[1];
+    }
+    document.getElementById('vol').value = vol;
+}
+
+get_volume();
+</script>
