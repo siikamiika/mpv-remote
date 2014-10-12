@@ -104,30 +104,36 @@ class DirectoryViewer(object):
         return ''.join(content)
 
 
+class Config(object):
+
+    def __init__(self):
+
+        with open('template.html') as f:
+            self.base = string.Template(f.read())
+        with open('buttons.html') as f:
+            buttons = f.read()
+            self.controls = self.base.substitute({'content': buttons})
+        with open('commands', 'r') as f:
+            self.commands = dict()
+            for c in f.read().splitlines():
+                if not c: continue
+                cname, command = c.split('=', 1)
+                self.commands[cname] = command
+        self.config = []
+        for conf in [c for c in ['config', 'mpv.conf'] if os.path.isfile(c)]:
+            with open(conf) as f:
+                self.config += ['--{}'.format(o.strip().split('#', 1)[0])
+                                for o in f.read().splitlines()
+                                if o and not o.strip().startswith('#')]
+        if os.path.isfile('login'):
+            with open('login', 'rb') as f:
+                login = standard_b64encode(f.read().strip())
+                self.login = 'Basic {}'.format(login.decode())
+        else: self.login = None
+
+config = Config()
+
 class MpvRequestHandler(BaseHTTPRequestHandler):
-
-    with open('template.html', 'r') as f: base = string.Template(f.read())
-    with open('buttons.html', 'r') as f: buttons = f.read()
-    with open('commands', 'r') as f:
-        commands = dict()
-        for c in f.read().splitlines():
-            if not c: continue
-            cname, command = c.split('=', 1)
-            if command.startswith('file='):
-                with open(command[len('file='):], 'r') as sf:
-                    command = sf.read()
-            commands[cname] = command
-    with open('config', 'r') as f:
-        config = ['--{}'.format(o) for o in f.read().splitlines()
-                  if '=' in o and not o.startswith('#')]
-    if os.path.isfile('login'):
-        with open('login', 'rb') as f:
-            login = standard_b64encode(f.read().strip())
-            login = 'Basic {}'.format(login.decode())
-    else: login = None
-
-    controls = { 'content': buttons }
-    controls = base.substitute(controls)
 
     def ask_auth(self):
         self.send_response(401)
@@ -157,7 +163,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             listing = DirectoryViewer(path).as_html
         except Exception as e:
             return self.respond_notfound(str(e).encode())
-        listing = self.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
+        listing = config.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
         self.respond_ok(listing.encode())
 
     def play_file(self, fpath):
@@ -167,7 +173,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             p.stdin.flush()
             p.kill()
         except Exception as e: print(e)
-        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin'] + self.config + ['--', fpath]
+        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs'] + config.config + ['--', fpath]
         self.server.mpv_process = Popen(cmd, stdin=PIPE)
 
 
@@ -205,15 +211,15 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         command, val = self.command_processor(command, val)
         try:
             mpv_stdin = self.server.mpv_process.stdin
-            mpv_stdin.write((self.commands[command].format(val) + '\n').encode())
+            mpv_stdin.write((config.commands[command].format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
         self.respond_ok(b'')
 
     def do_GET(self):
 
-        if self.login:
-            if self.headers.get('Authorization') == self.login:
+        if config.login:
+            if self.headers.get('Authorization') == config.login:
                 pass
             else:
                 return self.ask_auth()
@@ -227,8 +233,8 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.list_dir(qs_list['path'])
         elif url.path == '/play' and qs_list.get('path'):
             self.play_file(qs_list['path'])
-            self.respond_ok(self.controls.encode())
-        elif url.path == '/control' and qs_list.get('command') in self.commands:
+            self.respond_ok(config.controls.encode())
+        elif url.path == '/control' and qs_list.get('command') in config.commands:
             self.control_mpv(qs_list.get('command'), qs_list.get('val'))
         elif self.path == '/':
             homedir = expanduser('~')
