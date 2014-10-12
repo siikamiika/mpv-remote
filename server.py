@@ -162,8 +162,10 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def play_file(self, fpath):
         try:
-            self.server.mpv_process.stdin.write(b'quit\n')
-            self.server.mpv_process.kill()
+            p = self.server.mpv_process
+            p.stdin.write(b'quit\n')
+            p.stdin.flush()
+            p.kill()
         except Exception as e: print(e)
         cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin'] + self.config + ['--', fpath]
         self.server.mpv_process = Popen(cmd, stdin=PIPE)
@@ -205,15 +207,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def control_mpv(self, command, val):
         command, val = self.command_processor(command, val)
-        print(command, val)
         try:
             mpv_stdin = self.server.mpv_process.stdin
             mpv_stdin.write((self.commands[command].format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
-        h = 1
-        if command == 'stop': h = 2
-        self.respond_ok('<script>history.go(-{});</script>'.format(h).encode())
+        self.respond_ok(b'')
 
     def do_GET(self):
 
