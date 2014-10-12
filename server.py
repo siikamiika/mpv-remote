@@ -196,11 +196,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 pass
         if command == 'vol_set':
             try:
-                val = int(val)
-                if val == 0:
-                    pass
-                else:
-                    val = 100 ** (val / 100)
+                val = 101 ** (int(val) / 100) - 1
             except Exception as e:
                 print(e)
         return command, val
