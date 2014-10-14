@@ -6,38 +6,38 @@
             <td style="width: 60%;">
                 <input id="vol" onChange="javascript: set_and_save_volume()" style="width: 100%;" type="range" step="1" min="0" max="100">
             </td>
-            <td><a href="javascript:xhr_get('/control?command=toggle_drc')"><i class="fa fa-compress"></i></a></td>
+            <td><span class="control single" controlpath="/control?command=toggle_drc"><i class="fa fa-compress"></i></span></td>
         </tr>
     </table>
     <!-- chapter and playlist controls -->
     <table>
         <tr>
             <td style="width: 10%;"></td>
-            <td><a href="javascript:xhr_get('/control?command=ch_prev')"><i class="fa fa-chevron-down"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=ch_next')"><i class="fa fa-chevron-up"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=pl_prev')"><i class="fa fa-chevron-left"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=pl_next')"><i class="fa fa-chevron-right"></i></a></td>
+            <td><span class="control single" controlpath="/control?command=ch_prev"><i class="fa fa-chevron-down"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=ch_next"><i class="fa fa-chevron-up"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=pl_prev"><i class="fa fa-chevron-left"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=pl_next"><i class="fa fa-chevron-right"></i></span></td>
             <td style="width: 10%;"></td>
         </tr>
     </table>
     <!-- seeking and pausing -->
     <table>
         <tr>
-            <td><a href="javascript:xhr_get('/control?command=rev_long')"><i class="fa fa-fast-backward"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=rev_short')"><i class="fa fa-backward"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=playpause')"><i class="fa fa-play"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=fw_short')"><i class="fa fa-forward"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=fw_long')"><i class="fa fa-fast-forward"></i></a></td>
+            <td><span class="control repeat" controlpath="/control?command=rev_long"><i class="fa fa-fast-backward"></i></span></td>
+            <td><span class="control repeat" controlpath="/control?command=rev_short"><i class="fa fa-backward"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=playpause"><i class="fa fa-play"></i></span></td>
+            <td><span class="control repeat" controlpath="/control?command=fw_short"><i class="fa fa-forward"></i></span></td>
+            <td><span class="control repeat" controlpath="/control?command=fw_long"><i class="fa fa-fast-forward"></i></span></td>
         </tr>
     </table>
     <!-- change/adjust subtitle or audio track -->
     <table>
         <tr>
             <td style="width: 10%;"></td>
-            <td class="buttonhighlight"><a href="javascript:xhr_get('/control?command=subdelay_minus')"><i class="fa fa-minus"></i></a></td>
-            <td class="buttonhighlight"><a href="javascript:xhr_get('/control?command=sub')"><i class="fa fa-font"></i></a></td>
-            <td class="buttonhighlight"><a href="javascript:xhr_get('/control?command=subdelay_plus')"><i class="fa fa-plus"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=audio')"><i class="fa fa-music"></i></a></td>
+            <td><span class="control repeat" controlpath="/control?command=subdelay_minus"><i class="fa fa-minus"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=sub"><i class="fa fa-font"></i></span></td>
+            <td><span class="control repeat" controlpath="/control?command=subdelay_plus"><i class="fa fa-plus"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=audio"><i class="fa fa-music"></i></span></td>
             <td style="width: 10%;"></td>
         </tr>
     </table>
@@ -45,32 +45,82 @@
     <table>
         <tr>
             <td style="width: 20%;"></td>
-            <td><a href="javascript:xhr_get('/control?command=stop')"><i class="fa fa-eject"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=info')"><i class="fa fa-info"></i></a></td>
-            <td><a href="javascript:xhr_get('/control?command=fs')"><i class="fa fa-arrows-alt"></i></a></td>
+            <td><span class="control single" controlpath="/control?command=stop" onready="history.go(-1)"><i class="fa fa-eject"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=info"><i class="fa fa-info"></i></span></td>
+            <td><span class="control single" controlpath="/control?command=fs"><i class="fa fa-arrows-alt"></i></span></td>
             <td style="width: 20%;"></td>
         </tr>
     </table>
 </div>
 <script type="text/javascript">
+(function() {
+    var vol = ('; ' + document.cookie).match(/; volume=(.*?)(;|$)/);
+    if (vol) {
+        document.getElementById('vol').value = vol[1];
+    }
+}());
+
 function set_and_save_volume () {
     var vol = document.getElementById('vol').value;
     document.cookie = 'volume=' + vol + '; max-age=31536000; ';
     xhr_get('/control?command=vol_set&val=' + vol);
 }
 
-function get_volume () {
-    var vol = ('; ' + document.cookie).match(/; volume=(.*?)(;|$)/);
-    if (vol) {
-        document.getElementById('vol').value = vol[1];
-    }
-}
-
-function xhr_get (path) {
+function xhr_get (path, onready) {
     var req = new XMLHttpRequest();
+    req.onreadystatechange = function () {
+        if (req.readyState == 4 && req.status == 200) {
+            onready();
+        }
+    }
     req.open("GET", path, true);
     req.send();
 }
 
-get_volume();
+window.pressed = {};
+
+function press (path, onready) {
+    release(path);
+    xhr_get(path, onready);
+    window.pressed[path + '_timeout'] = setTimeout(function() {
+        window.pressed[path + '_interval'] = setInterval(function() {
+            xhr_get(path, onready);
+        }, 50);
+    }, 500);
+}
+
+function release (path) {
+    clearTimeout(pressed[path + '_timeout']);
+    clearInterval(pressed[path + '_interval']);
+}
+
+
+var controls = document.getElementsByClassName('single');
+for (var i = 0; i < controls.length; i++) {
+    (function() {
+        var c = controls[i];
+        var p = c.getAttribute('controlpath');
+        var onready = eval('(function () {' + c.getAttribute('onready') + '})')
+        c.addEventListener('click', function() {xhr_get(p, onready)}, false);
+    }());
+}
+
+
+var repeating_controls = document.getElementsByClassName('repeat');
+var is_touch = 'ontouchstart' in window;
+for (var i = 0; i < repeating_controls.length; i++) {
+    (function() {
+        var c = repeating_controls[i];
+        var p = c.getAttribute('controlpath');
+        var onready = eval('(function () {' + c.getAttribute('onready') + '})')
+        if (is_touch) {
+            c.addEventListener('touchstart', function() {press(p, onready)}, false);
+            c.addEventListener('touchend', function() {release(p)}, false);
+        }
+        else {
+            c.addEventListener('mousedown', function() {press(p, onready)}, false);
+            c.addEventListener('mouseup', function() {release(p)}, false);
+        }
+    }());
+}
 </script>
