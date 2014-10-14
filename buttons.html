@@ -6,17 +6,17 @@
             <td style="width: 60%;">
                 <input id="vol" onChange="javascript: set_and_save_volume()" style="width: 100%;" type="range" step="1" min="0" max="100">
             </td>
-            <td><span class="control single" controlpath="/control?command=toggle_drc"><i class="fa fa-compress"></i></span></td>
+            <td><span class="control" controlpath="/control?command=toggle_drc"><i class="fa fa-compress"></i></span></td>
         </tr>
     </table>
     <!-- chapter and playlist controls -->
     <table>
         <tr>
             <td style="width: 10%;"></td>
-            <td><span class="control single" controlpath="/control?command=ch_prev"><i class="fa fa-chevron-down"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=ch_next"><i class="fa fa-chevron-up"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=pl_prev"><i class="fa fa-chevron-left"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=pl_next"><i class="fa fa-chevron-right"></i></span></td>
+            <td><span class="control" controlpath="/control?command=ch_prev"><i class="fa fa-chevron-down"></i></span></td>
+            <td><span class="control" controlpath="/control?command=ch_next"><i class="fa fa-chevron-up"></i></span></td>
+            <td><span class="control" controlpath="/control?command=pl_prev"><i class="fa fa-chevron-left"></i></span></td>
+            <td><span class="control" controlpath="/control?command=pl_next"><i class="fa fa-chevron-right"></i></span></td>
             <td style="width: 10%;"></td>
         </tr>
     </table>
@@ -25,7 +25,7 @@
         <tr>
             <td><span class="control repeat" controlpath="/control?command=rev_long"><i class="fa fa-fast-backward"></i></span></td>
             <td><span class="control repeat" controlpath="/control?command=rev_short"><i class="fa fa-backward"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=playpause"><i class="fa fa-play"></i></span></td>
+            <td><span class="control" controlpath="/control?command=playpause"><i class="fa fa-play"></i></span></td>
             <td><span class="control repeat" controlpath="/control?command=fw_short"><i class="fa fa-forward"></i></span></td>
             <td><span class="control repeat" controlpath="/control?command=fw_long"><i class="fa fa-fast-forward"></i></span></td>
         </tr>
@@ -35,9 +35,9 @@
         <tr>
             <td style="width: 10%;"></td>
             <td><span class="control repeat" controlpath="/control?command=subdelay_minus"><i class="fa fa-minus"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=sub"><i class="fa fa-font"></i></span></td>
+            <td><span class="control" controlpath="/control?command=sub"><i class="fa fa-font"></i></span></td>
             <td><span class="control repeat" controlpath="/control?command=subdelay_plus"><i class="fa fa-plus"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=audio"><i class="fa fa-music"></i></span></td>
+            <td><span class="control" controlpath="/control?command=audio"><i class="fa fa-music"></i></span></td>
             <td style="width: 10%;"></td>
         </tr>
     </table>
@@ -45,9 +45,9 @@
     <table>
         <tr>
             <td style="width: 20%;"></td>
-            <td><span class="control single" controlpath="/control?command=stop" onready="history.go(-1)"><i class="fa fa-eject"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=info"><i class="fa fa-info"></i></span></td>
-            <td><span class="control single" controlpath="/control?command=fs"><i class="fa fa-arrows-alt"></i></span></td>
+            <td><span class="control" controlpath="/control?command=stop" onready="history.go(-1)"><i class="fa fa-eject"></i></span></td>
+            <td><span class="control" controlpath="/control?command=info"><i class="fa fa-info"></i></span></td>
+            <td><span class="control" controlpath="/control?command=fs"><i class="fa fa-arrows-alt"></i></span></td>
             <td style="width: 20%;"></td>
         </tr>
     </table>
@@ -77,25 +77,30 @@ function xhr_get (path, onready) {
     req.send();
 }
 
-window.pressed = {};
+window.pressed = false;
+window.pressed_buttons = {};
 
 function press (path, onready) {
     release(path);
-    xhr_get(path, onready);
-    window.pressed[path + '_timeout'] = setTimeout(function() {
-        window.pressed[path + '_interval'] = setInterval(function() {
-            xhr_get(path, onready);
+    window.pressed_buttons[path + '_timeout'] = setTimeout(function() {
+        var interval_id = setInterval(function() {
+            if (!window.pressed) {
+                clearInterval(interval_id);
+            }
+            else {
+                xhr_get(path, onready);
+            }
         }, 50);
+        window.pressed_buttons[path + '_interval'] = interval_id;
     }, 500);
 }
 
 function release (path) {
-    clearTimeout(pressed[path + '_timeout']);
-    clearInterval(pressed[path + '_interval']);
+    clearTimeout(pressed_buttons[path + '_timeout']);
+    clearInterval(pressed_buttons[path + '_interval']);
 }
 
-
-var controls = document.getElementsByClassName('single');
+var controls = document.getElementsByClassName('control');
 for (var i = 0; i < controls.length; i++) {
     (function() {
         var c = controls[i];
@@ -106,8 +111,20 @@ for (var i = 0; i < controls.length; i++) {
 }
 
 
+var is_touch = 'ontouchstart' in window
+
+if (is_touch) {
+    window.addEventListener('touchstart', function() {window.pressed = true}, false);
+    window.addEventListener('touchend', function() {window.pressed = false}, false);
+    window.addEventListener('orientationchange', function() {window.pressed = false}, false);
+}
+else {
+    window.addEventListener('mousedown', function(){window.pressed = true}, false);
+    window.addEventListener('mouseup', function(){window.pressed = false}, false);
+}
+
 var repeating_controls = document.getElementsByClassName('repeat');
-var is_touch = 'ontouchstart' in window;
+
 for (var i = 0; i < repeating_controls.length; i++) {
     (function() {
         var c = repeating_controls[i];
@@ -115,11 +132,9 @@ for (var i = 0; i < repeating_controls.length; i++) {
         var onready = eval('(function () {' + c.getAttribute('onready') + '})')
         if (is_touch) {
             c.addEventListener('touchstart', function() {press(p, onready)}, false);
-            c.addEventListener('touchend', function() {release(p)}, false);
         }
         else {
             c.addEventListener('mousedown', function() {press(p, onready)}, false);
-            c.addEventListener('mouseup', function() {release(p)}, false);
         }
     }());
 }
