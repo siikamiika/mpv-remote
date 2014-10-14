@@ -1,4 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qsl, quote, unquote
 from pathlib import Path
 from functools import cmp_to_key
@@ -16,7 +17,8 @@ class MpvProcess(object):
     def __init__(self):
         self.mpv_process = None
 
-class MpvServer(HTTPServer, MpvProcess): pass
+class MpvServer(ThreadingMixIn, HTTPServer, MpvProcess):
+    pass
 
 class DirectoryViewer(object):
 
@@ -135,6 +137,8 @@ config = Config()
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
+    protocol_version = 'HTTP/1.1'
+
     def ask_auth(self):
         self.send_response(401)
         self.send_header('WWW-Authenticate', 'Basic realm="mpv-remote"')
@@ -149,6 +153,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Cache-Control', 'public, max-age={}'.format(age))
         self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', len(data))
         self.end_headers()
         self.wfile.write(data)
 
@@ -183,7 +188,8 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.respond_notfound('file not found'.encode())
         else:
             try:
-                with open('static/'+requested, 'rb') as f:
+                p = Path('static') / requested
+                with p.open('rb') as f:
                     ct = {'.css': 'text/css'}
                     self.respond_ok(
                         f.read(),
