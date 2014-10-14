@@ -4,7 +4,7 @@
         <tr>
             <td><i class="fa fa-volume-up"></i></td>
             <td style="width: 60%;">
-                <input id="vol" onChange="javascript: set_and_save_volume()" style="width: 100%;" type="range" step="1" min="0" max="100">
+                <input id="vol" oninput="set_and_save_volume()" style="width: 100%;" type="range" step="1" min="0" max="100">
             </td>
             <td><span class="control" controlpath="/control?command=toggle_drc"><i class="fa fa-compress"></i></span></td>
         </tr>
