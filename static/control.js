@@ -77,9 +77,11 @@ for (var i = 0; i < repeating_controls.length; i++) {
         var onready = eval('(function () {' + c.getAttribute('onready') + '})')
         if (is_touch) {
             c.addEventListener('touchstart', function() {press(p, onready)}, false);
+            c.addEventListener('touchend', function() {release(p)}, false);
         }
         else {
             c.addEventListener('mousedown', function() {press(p, onready)}, false);
+            c.addEventListener('mouseup', function() {release(p)}, false);
         }
     }());
 }
