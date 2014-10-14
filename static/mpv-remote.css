@@ -1,0 +1,54 @@
+.navlink {
+    border: 3px solid gray;
+    background: #aaaaaa;
+    border-radius: 10px;
+    word-wrap: break-word;
+}
+.content {
+    position: relative;
+    top: 50px;
+}
+.remote table {
+    width: 100%;
+}
+.remote td {
+    text-align: center;
+}
+i {
+    min-width: 1em;
+}
+.remote .fa {
+    font-size: 50px; /* fallback */
+    font-size: 15vmin;
+}
+.control {
+    cursor: pointer;
+}
+.listing {
+    margin: 0 auto;
+    width: 90%;
+    border: 1px solid #eee;
+    padding: 5px;
+}
+ul {
+    list-style: none;
+}
+li {
+    margin-bottom: 1em;
+}
+div {
+    margin-bottom: 20px;
+}
+.video {
+    font-weight: bold;
+}
+.video:visited {
+    color: gray;
+}
+a:link, a:visited {
+    color: black;
+    text-decoration: none;
+}
+.video, .file, .folder {
+    word-wrap: break-word;
+}
