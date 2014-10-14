@@ -200,11 +200,6 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 val = val.splitlines()[0]
             except IndexError:
                 pass
-        if command == 'vol_set':
-            try:
-                val = 101 ** (int(val) / 100) - 1
-            except Exception as e:
-                print(e)
         return command, val
 
     def control_mpv(self, command, val):
