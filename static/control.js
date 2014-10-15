@@ -8,7 +8,7 @@
 function set_filename () {
     var filename;
     if (playlist['current'] >= 0 && playlist['current'] < playlist['files'].length) {
-        filename = playlist['files'][playlist['current']];
+        filename = playlist['files'][playlist['current']].split(/[\\/]/).pop();
     }
     else if (playlist['current'] == -1) {
         filename = '*';
