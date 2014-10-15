@@ -5,6 +5,18 @@
     }
 }());
 
+function set_filename () {
+    var filename;
+    if (playlist['current'] >= 0 && playlist['current'] < playlist['files'].length) {
+        filename = playlist['files'][playlist['current']];
+    }
+    else if (playlist['current'] == -1) {
+        filename = '*';
+    }
+    document.getElementById('filename').innerHTML = filename;
+}
+set_filename();
+
 function set_and_save_volume () {
     var vol = document.getElementById('vol').value;
     document.cookie = 'volume=' + vol + '; max-age=31536000; ';
@@ -12,6 +24,9 @@ function set_and_save_volume () {
 }
 
 function xhr_get (path, onready) {
+    if (!onready) {
+        onready = function(){};
+    }
     var req = new XMLHttpRequest();
     req.onreadystatechange = function () {
         if (req.readyState == 4 && req.status == 200) {
@@ -85,3 +100,27 @@ for (var i = 0; i < repeating_controls.length; i++) {
         }
     }());
 }
+
+function playlist_go (step) {
+    var previous = playlist['current']
+    if (previous == -1) {
+        if (step == 1)
+            xhr_get('/control?command=pl_next');
+        else if (step == -1)
+            xhr_get('/control?command=pl_prev')
+    }
+    else if (previous + step >= 0 && previous + step < playlist['files'].length) {
+        playlist['current'] = previous + step;
+        var file = playlist['files'][playlist['current']];
+        var play_query = '/play?path=' + encodeURIComponent(file);
+        xhr_get(play_query, function() {
+            window.history.replaceState('', '', play_query);
+            set_filename();
+        });
+    }
+}
+
+var prev = document.getElementById('pl_prev');
+var next = document.getElementById('pl_next');
+prev.addEventListener('click', function() {playlist_go(-1)}, false);
+next.addEventListener('click', function() {playlist_go(1)}, false);

@@ -1,8 +1,8 @@
 vol_set=set volume {}
 toggle_drc=af toggle drc
-pl_prev=playlist_prev
 ch_prev=add chapter -1
 ch_next=add chapter 1
+pl_prev=playlist_prev
 pl_next=playlist_next
 rev_long=seek -60
 rev_short=seek -5

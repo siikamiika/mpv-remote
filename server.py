@@ -9,9 +9,13 @@ import string
 from os.path import expanduser, splitext
 from base64 import standard_b64encode
 import html
+import json
 mpv_executable = 'mpv'
 if os.name == 'nt':
     mpv_executable = 'mpv.com'
+
+def encodeURIComponent(s):
+    return quote(s, safe='~()*!.\'')
 
 class MpvProcess(object):
     def __init__(self):
@@ -78,7 +82,7 @@ class DirectoryViewer(object):
         try:
             navlinks += os.sep.join(
                 '<a class="navlink" href="/dir?path={0}">{1}</a>'.format(
-                    quote(str(d)), html.escape(d.parts[-1]))
+                    encodeURIComponent(str(d)), html.escape(d.parts[-1]))
                     for d in list(reversed(self.path.parents)) + [self.path]
                 )
         except Exception as e:
@@ -89,7 +93,7 @@ class DirectoryViewer(object):
         content = []
         content.append('<li><a class="file" href="/play?path={all}">'
                        '<i class="fa fa-asterisk"></i> (play all)</a></li>'.format(
-                            all=quote(str(self.path / '*'))
+                            all=encodeURIComponent(str(self.path / '*'))
                         )
                     )
         fa = dict(
@@ -100,7 +104,7 @@ class DirectoryViewer(object):
         for x in self.list_directory():
             content.append(
                     '<li><a class="{cls}" href="/{do}?path={link}"><i class="{fa}"></i> {text}</a></li>'.format(
-                        do=x[2], cls=x[3], fa=fa[x[3]], link=quote(x[0]), text=html.escape(x[1])
+                        do=x[2], cls=x[3], fa=fa[x[3]], link=encodeURIComponent(x[0]), text=html.escape(x[1])
                     )
                 )
         return ''.join(content)
@@ -113,8 +117,7 @@ class Config(object):
         with open('template.html') as f:
             self.base = string.Template(f.read())
         with open('buttons.html') as f:
-            buttons = f.read()
-            self.controls = self.base.substitute({'content': buttons})
+            self.buttons = string.Template(f.read())
         with open('commands', 'r') as f:
             self.commands = dict()
             for c in f.read().splitlines():
@@ -173,6 +176,18 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             return self.respond_notfound(str(e).encode())
         listing = config.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
         self.respond_ok(listing.encode())
+
+    def get_controls(self, play_path):
+        parent_dir = Path(play_path).parent
+        files = [str(f) for f in sorted(parent_dir.iterdir(), key=lambda f: str(f).lower()) if f.is_file()]
+        try:
+            current = files.index(play_path)
+        except ValueError:
+            current = -1
+        playlist = dict(files=files, current=current)
+        playlist = 'var playlist = {}'.format(json.dumps(playlist))
+        buttons = config.buttons.substitute({'playlist': playlist})
+        return config.base.substitute({'content': buttons})
 
     def play_file(self, fpath):
         try:
@@ -236,13 +251,14 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         elif url.path == '/dir' and qs_list.get('path'):
             self.list_dir(qs_list['path'])
         elif url.path == '/play' and qs_list.get('path'):
-            self.play_file(qs_list['path'])
-            self.respond_ok(config.controls.encode())
+            play_path = qs_list['path']
+            self.play_file(play_path)
+            self.respond_ok(self.get_controls(play_path).encode())
         elif url.path == '/control' and qs_list.get('command') in config.commands:
             self.control_mpv(qs_list.get('command'), qs_list.get('val'))
         elif self.path == '/':
             homedir = expanduser('~')
-            self.redirect('/dir?path='+quote(homedir))
+            self.redirect('/dir?path='+encodeURIComponent(homedir))
         else:
             self.respond_notfound()
 
