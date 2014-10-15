@@ -142,14 +142,16 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
     def ask_auth(self):
         self.send_response(401)
         self.send_header('WWW-Authenticate', 'Basic realm="mpv-remote"')
+        self.send_header('Content-Length', 0)
         self.end_headers()
 
     def redirect(self, location):
         self.send_response(302)
         self.send_header('Location', location)
+        self.send_header('Content-Length', 0)
         self.end_headers()
 
-    def respond_ok(self, data, content_type='text/html; charset=utf-8', age=0):
+    def respond_ok(self, data=b'', content_type='text/html; charset=utf-8', age=0):
         self.send_response(200)
         self.send_header('Cache-Control', 'public, max-age={}'.format(age))
         self.send_header('Content-Type', content_type)
@@ -157,11 +159,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def respond_notfound(self, data=None):
+    def respond_notfound(self, data='404'.encode()):
         self.send_response(404)
         self.send_header('Content-Type', 'text/plain')
+        self.send_header('Content-Length', len(data))
         self.end_headers()
-        self.wfile.write(data or '404'.encode())
+        self.wfile.write(data)
 
     def list_dir(self, path):
         try:
@@ -215,7 +218,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             mpv_stdin.write((config.commands[command].format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
-        self.respond_ok(b'')
+        self.respond_ok()
 
     def do_GET(self):
 
