@@ -65,13 +65,13 @@ for (var i = 0; i < controls.length; i++) {
     (function() {
         var c = controls[i];
         var p = c.getAttribute('controlpath');
-        var onready = eval('(function () {' + c.getAttribute('onready') + '})')
+        var onready = eval('(function () {' + c.getAttribute('onready') + '})');
         c.addEventListener('click', function() {xhr_get(p, onready)}, false);
     }());
 }
 
 
-var is_touch = 'ontouchstart' in window
+var is_touch = 'ontouchstart' in window;
 
 if (is_touch) {
     window.addEventListener('touchstart', function() {window.pressed = true}, false);
@@ -89,7 +89,7 @@ for (var i = 0; i < repeating_controls.length; i++) {
     (function() {
         var c = repeating_controls[i];
         var p = c.getAttribute('controlpath');
-        var onready = eval('(function () {' + c.getAttribute('onready') + '})')
+        var onready = eval('(function () {' + c.getAttribute('onready') + '})');
         if (is_touch) {
             c.addEventListener('touchstart', function() {press(p, onready)}, false);
             c.addEventListener('touchend', function() {release(p)}, false);
@@ -102,12 +102,12 @@ for (var i = 0; i < repeating_controls.length; i++) {
 }
 
 function playlist_go (step) {
-    var previous = playlist['current']
+    var previous = playlist['current'];
     if (previous == -1) {
         if (step == 1)
             xhr_get('/control?command=pl_next');
         else if (step == -1)
-            xhr_get('/control?command=pl_prev')
+            xhr_get('/control?command=pl_prev');
     }
     else if (previous + step >= 0 && previous + step < playlist['files'].length) {
         playlist['current'] = previous + step;

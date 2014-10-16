@@ -177,9 +177,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         listing = config.base.substitute({'content': '<div class="listing">{}</div>'.format(listing)})
         self.respond_ok(listing.encode())
 
+    def list_dir_files(self, d):
+        return [str(f) for f in sorted(d.iterdir(), key=lambda f: str(f).lower()) if f.is_file()]
+
     def get_controls(self, play_path):
         parent_dir = Path(play_path).parent
-        files = [str(f) for f in sorted(parent_dir.iterdir(), key=lambda f: str(f).lower()) if f.is_file()]
+        files = self.list_dir_files(parent_dir)
         try:
             current = files.index(play_path)
         except ValueError:
@@ -196,7 +199,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             p.stdin.flush()
             p.kill()
         except Exception as e: print(e)
-        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs'] + config.config + ['--', fpath]
+        fpath = Path(fpath)
+        if fpath.parts[-1] == '*':
+            playlist = self.list_dir_files(fpath.parent)
+        else:
+            playlist = [str(fpath)]
+        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs'] + config.config + ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE)
 
 
