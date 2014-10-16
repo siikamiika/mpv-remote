@@ -219,11 +219,13 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 self.respond_notfound('error reading file'.encode())
 
     def command_processor(self, command, val):
-        if type(val) == str:
+        if command in ['vol_set', 'seek', 'subdelay', 'audiodelay']:
             try:
-                val = val.splitlines()[0]
-            except IndexError:
-                pass
+                val = float(val)
+            except ValueError:
+                val = None
+        else:
+            val = None
         return command, val
 
     def control_mpv(self, command, val):

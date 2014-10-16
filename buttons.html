@@ -1,5 +1,5 @@
 <div class="remote">
-    <div style="overflow: hidden; white-space: nowrap;" id="filename"></div>
+    <div style="overflow: scroll; white-space: nowrap;" id="filename"></div>
     <!-- volume controls -->
     <table>
         <tr>
@@ -24,22 +24,22 @@
     <!-- seeking and pausing -->
     <table>
         <tr>
-            <td><span class="button control repeat" controlpath="/control?command=rev_long"><i class="fa fa-fast-backward"></i></span></td>
-            <td><span class="button control repeat" controlpath="/control?command=rev_short"><i class="fa fa-backward"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=seek&amp;val=-60"><i class="fa fa-fast-backward"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=seek&amp;val=-5"><i class="fa fa-backward"></i></span></td>
             <td><span class="button control" controlpath="/control?command=playpause"><i class="fa fa-play"></i></span></td>
-            <td><span class="button control repeat" controlpath="/control?command=fw_short"><i class="fa fa-forward"></i></span></td>
-            <td><span class="button control repeat" controlpath="/control?command=fw_long"><i class="fa fa-fast-forward"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=seek&amp;val=+5"><i class="fa fa-forward"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=seek&amp;val=+60"><i class="fa fa-fast-forward"></i></span></td>
         </tr>
     </table>
     <!-- change/adjust subtitle or audio track -->
     <table>
         <tr>
-            <td style="width: 10%;"></td>
-            <td><span class="button control repeat" controlpath="/control?command=subdelay_minus"><i class="fa fa-minus"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=subdelay&amp;val=-0.1"><i class="fa fa-minus"></i></span></td>
             <td><span class="button control" controlpath="/control?command=sub"><i class="fa fa-font"></i></span></td>
-            <td><span class="button control repeat" controlpath="/control?command=subdelay_plus"><i class="fa fa-plus"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=subdelay&amp;val=+0.1"><i class="fa fa-plus"></i></span></td>
+            <td><span class="button control repeat" controlpath="/control?command=audiodelay&amp;val=-0.1"><i class="fa fa-minus"></i></span></td>
             <td><span class="button control" controlpath="/control?command=audio"><i class="fa fa-music"></i></span></td>
-            <td style="width: 10%;"></td>
+            <td><span class="button control repeat" controlpath="/control?command=audiodelay&amp;val=+0.1"><i class="fa fa-plus"></i></span></td>
         </tr>
     </table>
     <!-- misc -->
