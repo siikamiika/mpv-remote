@@ -178,7 +178,10 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.respond_ok(listing.encode())
 
     def list_dir_files(self, d):
-        return [str(f) for f in sorted(d.iterdir(), key=lambda f: str(f).lower()) if f.is_file()]
+        def _is_file(f):
+            try: return f.is_file()
+            except: return False
+        return [str(f) for f in sorted(d.iterdir(), key=lambda f: str(f).lower()) if _is_file(f)]
 
     def get_controls(self, play_path):
         parent_dir = Path(play_path).parent
