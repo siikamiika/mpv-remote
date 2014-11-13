@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qsl, quote, unquote
@@ -6,13 +8,14 @@ from functools import cmp_to_key
 from subprocess import Popen, PIPE
 import os
 import string
-from os.path import expanduser, splitext
+from os.path import expanduser, splitext, dirname, realpath
 from base64 import standard_b64encode
 import html
 import json
 mpv_executable = 'mpv'
 if os.name == 'nt':
     mpv_executable = 'mpv.com'
+script_path = Path(dirname(realpath(__file__)))
 
 def encodeURIComponent(s):
     return quote(s, safe='~()*!.\'')
@@ -114,24 +117,26 @@ class Config(object):
 
     def __init__(self):
 
-        with open('template.html') as f:
+        with (script_path / 'template.html').open() as f:
             self.base = string.Template(f.read())
-        with open('buttons.html') as f:
+        with (script_path / 'buttons.html').open() as f:
             self.buttons = string.Template(f.read())
-        with open('commands', 'r') as f:
+        with (script_path / 'commands').open() as f:
             self.commands = dict()
             for c in f.read().splitlines():
                 if not c: continue
                 cname, command = c.split('=', 1)
                 self.commands[cname] = command
         self.config = []
-        for conf in [c for c in ['config', 'mpv.conf'] if os.path.isfile(c)]:
-            with open(conf) as f:
+        for conf in [script_path / c for c in ['config', 'mpv.conf']]:
+            if not conf.is_file(): continue
+            with conf.open() as f:
                 self.config += ['--{}'.format(o.strip().split('#', 1)[0])
                                 for o in f.read().splitlines()
                                 if o and not o.strip().startswith('#')]
-        if os.path.isfile('login'):
-            with open('login', 'rb') as f:
+        login_file = script_path / 'login'
+        if login_file.is_file():
+            with login_file.open('rb') as f:
                 login = standard_b64encode(f.read().strip())
                 self.login = 'Basic {}'.format(login.decode())
         else: self.login = None
