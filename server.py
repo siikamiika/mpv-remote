@@ -218,11 +218,12 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def serve_static(self):
         requested = unquote(self.path[len('/static/'):])
-        if requested not in os.listdir('static'):
+        static_dir = script_path / 'static'
+        if requested not in os.listdir(str(static_dir)):
             self.respond_notfound('file not found'.encode())
         else:
             try:
-                p = Path('static') / requested
+                p = static_dir / requested
                 with p.open('rb') as f:
                     ct = {'.css': 'text/css'}
                     self.respond_ok(
