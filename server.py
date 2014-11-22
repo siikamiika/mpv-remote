@@ -8,6 +8,7 @@ from functools import cmp_to_key
 from subprocess import Popen, PIPE
 import os
 import string
+import re
 from os.path import expanduser, splitext, dirname, realpath
 from base64 import standard_b64encode
 import html
@@ -208,11 +209,14 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             p.kill()
         except Exception as e: print(e)
         fpath = Path(fpath)
+        folder_config = ['--{}'.format(c) for c in
+            (fpath.parent / 'mpv-remote.conf').open().read().splitlines()
+            if re.match('((secondary-)?(a|s|v)(id|lang)|(sub|audio)(-delay))=[0-9a-z\.\-]+$', c)]
         if fpath.parts[-1] == '*':
             playlist = self.list_dir_files(fpath.parent)
         else:
             playlist = [str(fpath)]
-        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs'] + config.config + ['--'] + playlist
+        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs'] + config.config + folder_config + ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE)
 
 
