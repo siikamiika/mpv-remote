@@ -209,9 +209,11 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             p.kill()
         except Exception as e: print(e)
         fpath = Path(fpath)
+        conf_path = fpath.parent / 'mpv-remote.conf'
         folder_config = ['--{}'.format(c) for c in
-            (fpath.parent / 'mpv-remote.conf').open().read().splitlines()
-            if re.match('((secondary-)?(a|s|v)(id|lang)|(sub|audio)(-delay))=[0-9a-z\.\-]+$', c)]
+                conf_path.open().read().splitlines()
+                if re.match('((secondary-)?(a|s|v)(id|lang)|(sub|audio)(-delay))=[0-9a-z\.\-]+$', c)
+            ] if conf_path.is_file() else []
         if fpath.parts[-1] == '*':
             playlist = self.list_dir_files(fpath.parent)
         else:
