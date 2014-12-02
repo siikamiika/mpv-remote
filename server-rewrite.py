@@ -4,12 +4,12 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 import os
-from os.path import expanduser, splitext, dirname, realpath
+from os.path import splitext, dirname, realpath
 import json
 import re
 from base64 import standard_b64encode
 from subprocess import Popen, PIPE
-from urllib.parse import urlparse, parse_qsl, unquote, quote
+from urllib.parse import unquote
 
 
 mpv_executable = 'mpv'
@@ -72,8 +72,7 @@ class FolderContent(object):
     def as_json(self):
         return json.dumps(dict(
             path=self.path.parts,
-            content=self.content,
-            sep=os.sep
+            content=self.content
             ))
 
     def _item_info(self, item):
@@ -189,26 +188,39 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         if not config.login(self.headers.get('Authorization')):
             return self.ask_auth()
 
-        url = urlparse(self.path)
-        qs_list = dict(parse_qsl(url.query))
-
         try:
             if self.path.startswith('/static/'):
                 self.serve_static()
-            elif url.path == '/dir' and qs_list.get('path'):
-                c = FolderContent(qs_list['path'])
-                self.respond_ok(c.as_json().encode(), 'application/json')
-            elif url.path == '/play' and qs_list.get('path'):
-                self.play_file(qs_list['path'])
-                self.respond_ok()
-            elif url.path == '/control' and qs_list.get('command') in config.commands:
-                self.control_mpv(qs_list.get('command'), qs_list.get('val'))
-                self.respond_ok()
             elif self.path == '/':
                 index = script_path / 'static' / 'index.html'
                 self.respond_ok(index.open('rb').read())
             else:
-                self.respond_notfound()
+                return self.respond_notfound()
+        except Exception as e:
+            self.respond_notfound(str(e).encode())
+
+    def do_POST(self):
+
+        if not config.login(self.headers.get('Authorization')):
+            return self.ask_auth()
+
+        content_length = int(self.headers.get('Content-Length'))
+        data = self.rfile.read(content_length)
+
+        try:
+            if self.path == '/dir':
+                dir_path = os.path.join(*json.loads(data.decode()))
+                c = FolderContent(dir_path)
+                self.respond_ok(c.as_json().encode(), 'application/json')
+            elif self.path == '/play':
+                file_path = os.path.join(*json.loads(data.decode()))
+                self.play_file(file_path)
+                self.respond_ok()
+            elif self.path == '/control':
+                command = json.loads(data.decode())
+                command, val = command.get('command'), command.get('val')
+                self.control_mpv(command, val)
+                self.respond_ok()
         except Exception as e:
             self.respond_notfound(str(e).encode())
 
