@@ -8,8 +8,60 @@
     <link rel="stylesheet" href="/static/mpv-remote.css">
 </head>
 <body>
-<div class="content">
-    $content
-</div>
+<div id="content"></div>
+<script type="text/javascript">
+    function xhr (type, path, data, onready) {
+        if (!onready) {
+            onready = function(){};
+        }
+        var req = new XMLHttpRequest();
+        req.onreadystatechange = function () {
+            if (req.readyState == 4 && req.status == 200) {
+                onready(req.responseText);
+            }
+        }
+        req.open(type, path, true);
+        req.send(data);
+    }
+
+    function play_file (path) {
+        xhr('POST', '/play', JSON.stringify(path));
+        (function init_controls () {
+            xhr('GET', '/static/buttons.html', null, function (response){
+                document.getElementById('content').innerHTML = response;
+                document.getElementById('filename').innerHTML = path[path.length - 1];
+                var controls = document.getElementsByClassName('control');
+                for (var i = 0; i < controls.length; i++) {
+                    (function() {
+                        var c = controls[i];
+                        var commands = c.getAttribute('control').split('|');
+                        var command = commands[0];
+                        var val = commands[1];
+                        var onready = (function() {eval(commands[2])});
+                        c.addEventListener('click', function() {
+                            control_mpv(command, val, onready);
+                        }, false);
+                    }());
+                }
+            });
+        })();
+    }
+
+    function control_mpv (command, val, onready) {
+        xhr('POST', '/control', JSON.stringify({'command': command, 'val': val}), onready);
+    }
+
+    function set_and_save_volume () {
+        var vol = document.getElementById('vol').value;
+        document.cookie = 'volume=' + vol + '; max-age=31536000; ';
+        control_mpv('vol_set', vol);
+    }
+
+    function open_folder (path) {
+        xhr('POST', '/dir', JSON.stringify(path), function (response){
+            document.getElementById('content').innerHTML = response;
+        });
+    }
+</script>
 </body>
 </html>

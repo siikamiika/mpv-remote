@@ -150,20 +150,24 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         requested = unquote(self.path[len('/static/'):])
         static_dir = script_path / 'static'
         if requested not in os.listdir(str(static_dir)):
-            self.respond_notfound('file not found'.encode())
-        else:
-            try:
-                p = static_dir / requested
-                with p.open('rb') as f:
-                    ct = {'.css': 'text/css'}
-                    self.respond_ok(
-                        f.read(),
-                        (ct.get(splitext(requested)[1]) or 'application/octet-stream'),
-                        315360000
-                        )
-            except Exception as e:
-                print(e)
-                self.respond_notfound('error reading file'.encode())
+            return self.respond_notfound('file not found'.encode())
+        try:
+            p = static_dir / requested
+            with p.open('rb') as f:
+                ct = {
+                    '.css': 'text/css; charset=utf-8',
+                    '.html': 'text/html; charset=utf-8',
+                    '.js': 'application/javascript; charset=utf-8'
+                    }
+                ct = (ct.get(splitext(requested)[1]) or 'application/octet-stream')
+                self.respond_ok(
+                    data=f.read(),
+                    content_type=ct,
+                    age=315360000
+                    )
+        except Exception as e:
+            print(e)
+            self.respond_notfound('error reading file'.encode())
 
     def sanitize(self, command, val):
         if command in ['vol_set', 'seek', 'subdelay', 'audiodelay']:
