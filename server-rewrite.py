@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 
-from lib import *
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 import os
-from os.path import dirname, realpath
+from os.path import expanduser, splitext, dirname, realpath
 import json
+import re
+from base64 import standard_b64encode
+from subprocess import Popen, PIPE
+from urllib.parse import urlparse, parse_qsl, unquote, quote
+
 
 mpv_executable = 'mpv'
 if os.name == 'nt':
@@ -39,6 +45,17 @@ class Config(object):
                 return auth == 'Basic {}'.format(login.decode())
         else:
             return True
+
+    @staticmethod
+    def folder_config(fpath):
+        allowed = '((secondary-)?(a|s|v)(id|lang)|(sub|audio)(-delay))=[0-9a-z\.\-]+$'
+        fpath = Path(fpath)
+        conf_path = fpath.parent / 'mpv-remote.conf'
+        return ['--{}'.format(c)
+            for c in conf_path.open().read().splitlines()
+            if re.match(allowed, c)
+        ] if conf_path.is_file() else []
+
 
 class FolderContent(object):
 
@@ -125,55 +142,75 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             p.stdin.flush()
             p.kill()
         except Exception as e: print(e)
-        fpath = Path(fpath)
-        conf_path = fpath.parent / 'mpv-remote.conf'
-        folder_config = ['--{}'.format(c) for c in
-                conf_path.open().read().splitlines()
-                if re.match('((secondary-)?(a|s|v)(id|lang)|(sub|audio)(-delay))=[0-9a-z\.\-]+$', c)
-            ] if conf_path.is_file() else []
-        if fpath.parts[-1] == '*':
-            playlist = self.list_dir_files(fpath.parent)
-        else:
-            playlist = [str(fpath)]
-        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs'] 
-        cmd += config.mpv_config() + folder_config + ['--'] + playlist
+        playlist = [fpath]
+        cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs']
+        cmd += config.mpv_config() + config.folder_config(fpath) + ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE)
 
+    def serve_static(self):
+        requested = unquote(self.path[len('/static/'):])
+        static_dir = script_path / 'static'
+        if requested not in os.listdir(str(static_dir)):
+            self.respond_notfound('file not found'.encode())
+        else:
+            try:
+                p = static_dir / requested
+                with p.open('rb') as f:
+                    ct = {'.css': 'text/css'}
+                    self.respond_ok(
+                        f.read(),
+                        (ct.get(splitext(requested)[1]) or 'application/octet-stream'),
+                        315360000
+                        )
+            except Exception as e:
+                print(e)
+                self.respond_notfound('error reading file'.encode())
+
+    def sanitize(self, command, val):
+        if command in ['vol_set', 'seek', 'subdelay', 'audiodelay']:
+            try:
+                val = float(val)
+            except ValueError:
+                val = None
+        else:
+            val = None
+        return command, val
+
     def control_mpv(self, command, val):
-        command, val = self.command_processor(command, val)
+        command, val = self.sanitize(command, val)
         try:
             mpv_stdin = self.server.mpv_process.stdin
             mpv_stdin.write((config.commands[command].format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
-        self.respond_ok()
 
     def do_GET(self):
 
-        if config.login:
-            if self.headers.get('Authorization') == config.login:
-                pass
-            else:
-                return self.ask_auth()
+        if not config.login(self.headers.get('Authorization')):
+            return self.ask_auth()
 
         url = urlparse(self.path)
         qs_list = dict(parse_qsl(url.query))
 
-        if self.path.startswith('/static/'):
-            self.serve_static()
-        elif url.path == '/dir' and qs_list.get('path'):
-            self.list_dir(qs_list['path'])
-        elif url.path == '/play' and qs_list.get('path'):
-            play_path = qs_list['path']
-            self.play_file(play_path)
-            self.respond_ok(self.get_controls(play_path).encode())
-        elif url.path == '/control' and qs_list.get('command') in config.commands:
-            self.control_mpv(qs_list.get('command'), qs_list.get('val'))
-        elif self.path == '/':
-            homedir = expanduser('~')
-            self.redirect('/dir?path='+encodeURIComponent(homedir))
-        else:
-            self.respond_notfound()
+        try:
+            if self.path.startswith('/static/'):
+                self.serve_static()
+            elif url.path == '/dir' and qs_list.get('path'):
+                c = FolderContent(qs_list['path'])
+                self.respond_ok(c.as_json().encode(), 'application/json')
+            elif url.path == '/play' and qs_list.get('path'):
+                self.play_file(qs_list['path'])
+                self.respond_ok()
+            elif url.path == '/control' and qs_list.get('command') in config.commands:
+                self.control_mpv(qs_list.get('command'), qs_list.get('val'))
+                self.respond_ok()
+            elif self.path == '/':
+                index = script_path / 'static' / 'index.html'
+                self.respond_ok(index.open('rb').read())
+            else:
+                self.respond_notfound()
+        except Exception as e:
+            self.respond_notfound(str(e).encode())
 
 
 if __name__ == '__main__':
