@@ -10,12 +10,11 @@ the mpv directory.
 
 ### Configuration
 
-To set a password against unauthorized LAN access or CSRF, create a file
-called `./login` containing `username:password`.
+To set a password against unauthorized LAN access or CSRF, create `preferences/login` containing `username:password`.
 
 
-You can add mpv-remote specific mpv configurations, such as `fs-screen=1` or `force-window=yes` to files `./config` or `./mpv.conf`.
-Both files will be loaded and appended to mpv command line.
+You can add mpv-remote specific mpv configurations, such as `fs-screen=1` or `force-window=yes` to `preferences/mpv.conf`.
+It will be loaded and appended to mpv command line.
 
 ## Usage
 

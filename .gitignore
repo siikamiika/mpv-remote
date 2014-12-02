@@ -2,7 +2,6 @@
 *.swp
 *.py[cod]
 __pycache__/
-testing/
-login
-config
-mpv.conf
+preferences/login
+preferences/config
+preferences/mpv.conf
