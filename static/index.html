@@ -25,26 +25,32 @@
     }
 
     function play_file (path) {
-        xhr('POST', '/play', JSON.stringify(path));
-        (function init_controls () {
-            xhr('GET', '/static/buttons.html', null, function (response){
-                document.getElementById('content').innerHTML = response;
-                document.getElementById('filename').innerHTML = path[path.length - 1];
-                var controls = document.getElementsByClassName('control');
-                for (var i = 0; i < controls.length; i++) {
-                    (function() {
-                        var c = controls[i];
-                        var commands = c.getAttribute('control').split('|');
-                        var command = commands[0];
-                        var val = commands[1];
-                        var onready = (function() {eval(commands[2])});
-                        c.addEventListener('click', function() {
-                            control_mpv(command, val, onready);
-                        }, false);
-                    }());
-                }
-            });
-        })();
+        xhr('POST', '/play', JSON.stringify(path), function() {
+            show_controls(path);
+        });
+    }
+
+    function show_controls (path) {
+        xhr('GET', '/static/buttons.html', null, function (buttons_html){
+            document.getElementById('content').innerHTML = buttons_html;
+            document.getElementById('filename').innerHTML = path[path.length - 1];
+            var vol = ('; ' + document.cookie).match(/; volume=(.*?)(;|$)/);
+            if (vol)
+                document.getElementById('vol').value = vol[1];
+            var controls = document.getElementsByClassName('control');
+            for (var i = 0; i < controls.length; i++) {
+                (function() {
+                    var c = controls[i];
+                    var commands = c.getAttribute('control').split('|');
+                    var command = commands[0];
+                    var val = commands[1];
+                    var onready = (function() {eval(commands[2])});
+                    c.addEventListener('click', function() {
+                        control_mpv(command, val, onready);
+                    }, false);
+                }());
+            }
+        });
     }
 
     function control_mpv (command, val, onready) {
@@ -57,10 +63,150 @@
         control_mpv('vol_set', vol);
     }
 
+    function show_folder_content (content, file_dir_order, dirsort, dirsort_order, filesort, filesort_order) {
+        // file_dir_order: 'file' or 'folder' (which first)
+        // dirsort and filesort: 'modified' or 'name'
+        // order for dirsort and filesort: 'asc' or 'desc'
+        var contentlinks = document.getElementById('contentlinks');
+        function compare_fn (attribute, order) {
+            return (function (a,b) {
+                if (order == 'asc') {}
+                else if (order == 'desc') {
+                    var tmp = a;
+                    a = b;
+                    b = tmp;
+                }
+                var cmp_a, cmp_b;
+                if (attribute == 'name') {
+                    cmp_a = a.path[a.path.length - 1].toLowerCase();
+                    cmp_b = b.path[b.path.length - 1].toLowerCase();
+                }
+                else if (attribute == 'modified') {
+                    cmp_a = a.modified;
+                    cmp_b = b.modified;
+                }
+                if (cmp_a < cmp_b)
+                    return -1;
+                else if (cmp_a > cmp_b)
+                    return 1;
+                else
+                    return 0;
+            });
+        }
+        var files = [];
+        var folders = [];
+        for (var i = 0; i < content.length; i++) {
+            if (content[i].type == 'dir') {
+                folders.push(content[i]);
+            }
+            else if (content[i].type == 'file') {
+                files.push(content[i]);
+            }
+        }
+        files.sort(compare_fn(filesort, filesort_order));
+        folders.sort(compare_fn(dirsort, dirsort_order));
+        var items = [files, folders];
+        if (file_dir_order == 'folder')
+            items = items.reverse();
+        items = items[0].concat(items[1]);
+        for (var i = 0; i < items.length; i++) {
+            (function() {
+                var item = items[i];
+                var filename = item.path[item.path.length - 1];
+                var contentlink = document.createElement('a');
+                var icon = document.createElement('i');
+                if (item.type == 'dir') {
+                    var state = {'open_folder': item.path};
+                    var state_url = encodeURIComponent(JSON.stringify(state));
+                    contentlink.href = '#'+state_url;
+                    contentlink.addEventListener('click', function() {
+                        history.pushState(state, '', '#'+state_url);
+                        open_folder(item.path);
+                    }, false);
+                    icon.className = 'fa fa-folder';
+                    contentlink.className = 'folder';
+                }
+                else if (item.type == 'file') {
+                    var state = {'play_file': item.path};
+                    var state_url = encodeURIComponent(JSON.stringify(state));
+                    contentlink.href = '#'+state_url;
+                    contentlink.addEventListener('click', function() {
+                        history.pushState(state, '', '#'+state_url);
+                        play_file(item.path);
+                    }, false);
+                    var vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv'];
+                    var ext = filename.split('.').pop();
+                    if (vid_ext.indexOf(ext) > -1) {
+                        icon.className = 'fa fa-file-video-o';
+                        contentlink.className = 'video';
+                    }
+                    else {
+                        contentlink.className = 'file';
+                    }
+                }
+                contentlink.appendChild(icon);
+                contentlink.appendChild(document.createTextNode(' ' + filename));
+                var li = document.createElement('li');
+                li.appendChild(contentlink);
+                contentlinks.appendChild(li);
+            }());
+        }
+    }
+
+    function show_navigation_links (parts) {
+        var navlinks = document.getElementById('navlinks');
+        for (var i = 0; i < parts.length; i++) {
+            (function() {
+                var navlink = document.createElement('a');
+                var link = parts.slice(0, i+1);
+                var state = {'open_folder': link};
+                var state_url = encodeURIComponent(JSON.stringify(state));
+                navlink.href = '#'+state_url;
+                navlink.addEventListener('click', function() {
+                    history.pushState(state, '', '#'+state_url);
+                    open_folder(link);
+                }, false);
+                navlink.className = 'navlink';
+                navlink.innerHTML = parts[i];
+                navlinks.appendChild(navlink);
+            }());
+        }
+    }
+
     function open_folder (path) {
-        xhr('POST', '/dir', JSON.stringify(path), function (response){
-            document.getElementById('content').innerHTML = response;
+        xhr('GET', '/static/browser.html', null, function (browser_html) {
+            document.getElementById('content').innerHTML = browser_html;
+            xhr('POST', '/dir', JSON.stringify(path), function (dircontent_json){
+                dircontent_json = JSON.parse(dircontent_json);
+                show_navigation_links(dircontent_json.path);
+                show_folder_content(dircontent_json.content, 'folder', 'modified', 'desc', 'name', 'asc');
+            });
         });
+    }
+
+    function open_location (location) {
+        if (location.play_file) {
+            play_file(location.play_file);
+        }
+        else if (location.open_folder) {
+            open_folder(location.open_folder);
+        }
+    }
+
+    window.onpopstate = function (e) {
+        open_location(e.state);
+    }
+
+    window.onload = function () {
+        if (window.location.hash) {
+            var state = window.location.hash.substring(1);
+            state = decodeURIComponent(state);
+            state = JSON.parse(state);
+            open_location(state);
+            history.replaceState(state, '');
+        }
+        else
+            open_folder(['WINROOT']);
     }
 </script>
 </body>
