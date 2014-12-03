@@ -27,7 +27,22 @@
     function play_file (path) {
         xhr('POST', '/play', JSON.stringify(path), function() {
             show_controls(path);
+            var playlist_index = window.playlist.files.indexOf(path.join('\\/\\/'));
+            if (playlist_index > -1) {
+                window.playlist.current = playlist_index;
+            }
         });
+    }
+
+    function playlist_go (step) {
+        var new_value = window.playlist.current + step;
+        if (new_value > -1 && new_value < window.playlist.files.length) {
+            window.playlist.current = new_value;
+            var filename = window.playlist.files[window.playlist.current].split('\\/\\/');
+            play_file(filename);
+            state = {'play_file': filename};
+            history.replaceState(state, '', '#'+encodeURIComponent(JSON.stringify(state)));
+        }
     }
 
     function show_controls (path) {
@@ -51,6 +66,12 @@
                     }, false);
                 }());
             }
+            document.getElementById('pl_prev').addEventListener('click', function(e) {
+                playlist_go(-1);
+            }, false);
+            document.getElementById('pl_next').addEventListener('click', function(e) {
+                playlist_go(1);
+            }, false);
         });
     }
 
@@ -153,6 +174,10 @@
                 li.appendChild(contentlink);
                 contentlinks.appendChild(li);
             }());
+        }
+        window.playlist = {'files': [], 'current': -1};
+        for (var i = 0; i < files.length; i++) {
+            window.playlist.files.push(files[i].path.join('\\/\\/'));
         }
     }
 
