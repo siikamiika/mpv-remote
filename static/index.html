@@ -49,6 +49,49 @@
         }
     }
 
+    function press_button (commands) {
+        release_button(commands[0]);
+        window.pressed_buttons[commands[0] + '_timeout'] = setTimeout(function() {
+            var interval_id = setInterval(function() {
+                if (!window.pressed) {
+                    clearInterval(interval_id);
+                }
+                else {
+                    control_mpv(commands[0], commands[1], commands[2]);
+                }
+            }, 50);
+            window.pressed_buttons[commands[0] + '_interval'] = interval_id;
+        }, 500);
+    }
+
+    function release_button (commands) {
+        clearTimeout(pressed_buttons[commands[0] + '_timeout']);
+        clearInterval(pressed_buttons[commands[0] + '_interval']);
+    }
+
+    function activate_control (c, repeat) {
+        var commands = c.getAttribute('control').split('|');
+        var command = commands[0];
+        var val = commands[1];
+        var onready = (function() {eval(commands[2])});
+        if (!repeat) {
+            c.addEventListener('click', function(e) {
+                e.preventDefault();
+                control_mpv(command, val, onready);
+            }, false);
+        }
+        else {
+            if ('ontouchstart' in window) {
+                c.addEventListener('touchstart', function() {press_button(commands)}, false);
+                c.addEventListener('touchend', function() {release_button(commands)}, false);
+            }
+            else {
+                c.addEventListener('mousedown', function() {press_button(commands)}, false);
+                c.addEventListener('mouseup', function() {release_button(commands)}, false);
+            }
+        }
+    }
+
     function show_controls (path) {
         xhr('GET', '/static/buttons.html', null, function (buttons_html){
             document.getElementById('content').innerHTML = buttons_html;
@@ -58,17 +101,11 @@
                 document.getElementById('vol').value = vol[1];
             var controls = document.getElementsByClassName('control');
             for (var i = 0; i < controls.length; i++) {
-                (function() {
-                    var c = controls[i];
-                    var commands = c.getAttribute('control').split('|');
-                    var command = commands[0];
-                    var val = commands[1];
-                    var onready = (function() {eval(commands[2])});
-                    c.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        control_mpv(command, val, onready);
-                    }, false);
-                }());
+                activate_control(controls[i]);
+            }
+            var repeating_controls = document.getElementsByClassName('repeat');
+            for (var i = 0; i < repeating_controls.length; i++) {
+                activate_control(repeating_controls[i], true);
             }
             document.getElementById('pl_prev').addEventListener('click', function(e) {
                 playlist_go(-1);
@@ -261,6 +298,19 @@
                 history.replaceState(state[0], '', state[1]);
             }
         });
+
+        window.pressed = false;
+        window.pressed_buttons = {};
+
+        if ('ontouchstart' in window) {
+            window.ontouchstart = function () {window.pressed = true};
+            window.ontouchend = function () {window.pressed = false};
+            window.onorientationchange = function () {window.pressed = false};
+        }
+        else {
+            window.onmousedown = function () {window.pressed = true};
+            window.onmouseup = function () {window.pressed = false};
+        }
     }
 </script>
 </body>
