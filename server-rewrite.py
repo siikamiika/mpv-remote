@@ -4,11 +4,12 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 import os
+import sys
 from os.path import splitext, dirname, realpath, expanduser
 import json
 import re
 from base64 import standard_b64encode
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, DEVNULL
 from urllib.parse import unquote
 
 
@@ -110,6 +111,29 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     protocol_version = 'HTTP/1.1'
 
+    def log_message(self, *args, **kwargs):
+        if self.command == 'POST':
+            if not hasattr(self.server, 'last_logmsg'):
+                self.server.last_logmsg = [self.POST_data, 0]
+            if self.server.last_logmsg[0] == self.POST_data:
+                self.server.last_logmsg[1] += 1
+            else:
+                self.server.last_logmsg = [self.POST_data, 0]
+                sys.stderr.write('\n')
+            sys.stderr.write('\r({counter}) {addr} - - [{datetime}] "POST {path} {req_ver}" {statuscode} {data}'.format(
+                counter=self.server.last_logmsg[1],
+                addr=self.address_string(),
+                datetime=self.log_date_time_string(),
+                path=self.path,
+                req_ver=self.request_version,
+                statuscode=args[2],
+                data=self.POST_data.decode(),
+                ))
+            self.server.last_logmsg[0] = self.POST_data
+        else:
+            BaseHTTPRequestHandler.log_message(self, *args, **kwargs)
+
+
     def ask_auth(self):
         self.send_response(401)
         self.send_header('WWW-Authenticate', 'Basic realm="mpv-remote"')
@@ -143,11 +167,11 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             p.stdin.write(b'quit\n')
             p.stdin.flush()
             p.kill()
-        except Exception as e: print(e)
+        except: pass
         playlist = [fpath]
         cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs']
         cmd += config.mpv_config() + config.folder_config(fpath) + ['--'] + playlist
-        self.server.mpv_process = Popen(cmd, stdin=PIPE)
+        self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
 
     def serve_static(self):
         requested = unquote(self.path[len('/static/'):])
@@ -215,19 +239,19 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             return self.ask_auth()
 
         content_length = int(self.headers.get('Content-Length'))
-        data = self.rfile.read(content_length)
+        self.POST_data = self.rfile.read(content_length)
 
         try:
             if self.path == '/dir':
-                dir_path = os.path.join(*json.loads(data.decode()))
+                dir_path = os.path.join(*json.loads(self.POST_data.decode()))
                 c = FolderContent(dir_path)
                 self.respond_ok(c.as_json().encode(), 'application/json')
             elif self.path == '/play':
-                file_path = os.path.join(*json.loads(data.decode()))
+                file_path = os.path.join(*json.loads(self.POST_data.decode()))
                 self.play_file(file_path)
                 self.respond_ok()
             elif self.path == '/control':
-                command = json.loads(data.decode())
+                command = json.loads(self.POST_data.decode())
                 command, val = command.get('command'), command.get('val')
                 self.control_mpv(command, val)
                 self.respond_ok()
