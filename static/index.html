@@ -24,6 +24,10 @@
         req.send(data);
     }
 
+    function encode_state(state) {
+        return [state, '#' + encodeURIComponent(JSON.stringify(state))];
+    }
+
     function play_file (path) {
         xhr('POST', '/play', JSON.stringify(path), function() {
             show_controls(path);
@@ -40,8 +44,8 @@
             window.playlist.current = new_value;
             var filename = window.playlist.files[window.playlist.current].split('\\/\\/');
             play_file(filename);
-            state = {'play_file': filename};
-            history.replaceState(state, '', '#'+encodeURIComponent(JSON.stringify(state)));
+            var state = encode_state({'play_file': filename});
+            history.replaceState(state[0], '', state[1]);
         }
     }
 
@@ -138,26 +142,14 @@
                 var contentlink = document.createElement('a');
                 var icon = document.createElement('i');
                 if (item.type == 'dir') {
-                    var state = {'open_folder': item.path};
-                    var state_url = encodeURIComponent(JSON.stringify(state));
-                    contentlink.href = '#'+state_url;
-                    contentlink.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        history.pushState(state, '', '#'+state_url);
-                        open_folder(item.path);
-                    }, false);
+                    var state = encode_state({'open_folder': item.path});
+                    activate_link(contentlink, state);
                     icon.className = 'fa fa-folder';
                     contentlink.className = 'folder';
                 }
                 else if (item.type == 'file') {
-                    var state = {'play_file': item.path};
-                    var state_url = encodeURIComponent(JSON.stringify(state));
-                    contentlink.href = '#'+state_url;
-                    contentlink.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        history.pushState(state, '', '#'+state_url);
-                        play_file(item.path);
-                    }, false);
+                    var state = encode_state({'play_file': item.path});
+                    activate_link(contentlink, state);
                     var vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv'];
                     var ext = filename.split('.').pop();
                     if (vid_ext.indexOf(ext) > -1) {
@@ -183,17 +175,20 @@
 
     function show_navigation_links (parts) {
         var navlinks = document.getElementById('navlinks');
+        if (window.os == 'nt') {
+            var winroot = document.createElement('a');
+            winroot.className = 'navlink';
+            winroot.innerHTML = '(root)';
+            var state = encode_state({'open_folder': ['WINROOT']});
+            activate_link(winroot, state);
+            navlinks.appendChild(winroot);
+        }
         for (var i = 0; i < parts.length; i++) {
             (function() {
                 var navlink = document.createElement('a');
                 var link = parts.slice(0, i+1);
-                var state = {'open_folder': link};
-                var state_url = encodeURIComponent(JSON.stringify(state));
-                navlink.href = '#'+state_url;
-                navlink.addEventListener('click', function() {
-                    history.pushState(state, '', '#'+state_url);
-                    open_folder(link);
-                }, false);
+                var state = encode_state({'open_folder': link});
+                activate_link(navlink, state);
                 navlink.className = 'navlink';
                 navlink.innerHTML = parts[i];
                 navlinks.appendChild(navlink);
@@ -224,6 +219,18 @@
         }
     }
 
+    function activate_link (element, state, replace_history) {
+        element.href = state[1];
+        element.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (replace_history)
+                history.replaceState(state[0], '', state[1]);
+            else
+                history.pushState(state[0], '', state[1]);
+            open_location(state[0]);
+        }, false);
+    }
+
     window.onpopstate = function (e) {
         if (e.state) {
             var state = e.state;
@@ -236,15 +243,24 @@
     }
 
     window.onload = function () {
-        if (window.location.hash) {
-            var state = window.location.hash.substring(1);
-            state = decodeURIComponent(state);
-            state = JSON.parse(state);
-            open_location(state);
-            history.replaceState(state, '');
-        }
-        else
-            open_folder(['WINROOT']);
+        xhr('GET', '/prefs', null, function (prefs_json) {
+            prefs_json = JSON.parse(prefs_json);
+            window.os = prefs_json.os;
+            window.home = prefs_json.home;
+            window.path_separator = prefs_json.sep;
+            if (window.location.hash) {
+                var state = window.location.hash.substring(1);
+                state = decodeURIComponent(state);
+                state = JSON.parse(state);
+                open_location(state);
+                history.replaceState(state, '');
+            }
+            else {
+                var state = encode_state({'open_folder': window.home});
+                open_location(state[0]);
+                history.replaceState(state[0], '', state[1]);
+            }
+        });
     }
 </script>
 </body>

@@ -4,7 +4,7 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 import os
-from os.path import splitext, dirname, realpath
+from os.path import splitext, dirname, realpath, expanduser
 import json
 import re
 from base64 import standard_b64encode
@@ -65,9 +65,12 @@ class FolderContent(object):
             self.content = self._list_windows_drives()
         else:
             self.content = []
-            for item in self.path.iterdir():
-                i = self._item_info(item)
-                if i: self.content.append(i)
+            try:
+                for item in self.path.iterdir():
+                    i = self._item_info(item)
+                    if i: self.content.append(i)
+            except Exception as e:
+                print(e)
 
     def as_json(self):
         return json.dumps(dict(
@@ -78,15 +81,15 @@ class FolderContent(object):
     def _item_info(self, item):
         try:
             _ = item.stat()
+            return dict(
+                path=item.parts,
+                type='dir' if item.is_dir() else 'file',
+                modified=_.st_mtime,
+                size=_.st_size
+                )
         except Exception as e:
             print(e)
             return
-        return dict(
-            path=item.parts,
-            type='dir' if item.is_dir() else 'file',
-            modified=_.st_mtime,
-            size=_.st_size
-            )
 
     def _list_windows_drives(self):
         drives = [Path('{}:\\'.format(c)) for c in map(chr, range(65, 91))]
@@ -198,6 +201,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             elif self.path == '/':
                 index = script_path / 'static' / 'index.html'
                 self.respond_ok(index.open('rb').read())
+            elif self.path == '/prefs':
+                prefs = dict(os=os.name, home=Path(expanduser('~')).parts, sep=os.sep)
+                self.respond_ok(json.dumps(prefs).encode(), 'text/plain; charset=utf-8')
             else:
                 return self.respond_notfound()
         except Exception as e:
