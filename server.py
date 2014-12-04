@@ -23,15 +23,21 @@ class Config(object):
     def __init__(self, conf_dir):
 
         self.dir = conf_dir
-        self.commands = dict()
+        self.commands = self.mpv_commands()
+
+    def mpv_commands(self):
+        commands = dict()
         with (self.dir / 'commands').open() as f:
             for c in f.read().splitlines():
                 if not c: continue
                 cname, command = c.split('=', 1)
                 self.commands[cname] = command
+        return commands
 
     def mpv_config(self):
-        with (self.dir / 'mpv.conf').open() as f:
+        mpv_conf_file = self.dir / 'mpv.conf'
+        if not mpv_conf_file.is_file(): return []
+        with mpv_conf_file.open() as f:
             return [
                 '--{}'.format(o.strip().split('#', 1)[0])
                 for o in f.read().splitlines()
@@ -40,12 +46,10 @@ class Config(object):
 
     def login(self, auth):
         login_file = self.dir / 'login'
-        if login_file.is_file():
-            with login_file.open('rb') as f:
-                login = standard_b64encode(f.read().strip())
-                return auth == 'Basic {}'.format(login.decode())
-        else:
-            return True
+        if not login_file.is_file(): return True
+        with login_file.open('rb') as f:
+            login = standard_b64encode(f.read().strip())
+            return auth == 'Basic {}'.format(login.decode())
 
     @staticmethod
     def folder_config(fpath):
