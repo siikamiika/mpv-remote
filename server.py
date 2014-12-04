@@ -31,7 +31,7 @@ class Config(object):
             for c in f.read().splitlines():
                 if not c: continue
                 cname, command = c.split('=', 1)
-                self.commands[cname] = command
+                commands[cname] = command
         return commands
 
     def mpv_config(self):
