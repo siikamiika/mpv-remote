@@ -8,15 +8,18 @@
     <link rel="stylesheet" href="/static/mpv-remote.css">
 </head>
 <body>
+<div id="loading-indicator">Loading...</div>
 <div id="content"></div>
 <script type="text/javascript">
     function xhr (type, path, data, onready) {
+        loading_indicator(true);
         if (!onready) {
             onready = function(){};
         }
         var req = new XMLHttpRequest();
         req.onreadystatechange = function () {
             if (req.readyState == 4 && req.status == 200) {
+                loading_indicator(false);
                 onready(req.responseText);
             }
         }
@@ -266,6 +269,14 @@
                 history.pushState(state[0], '', state[1]);
             open_location(state[0]);
         }, false);
+    }
+
+    function loading_indicator (on) {
+        var indicator = document.getElementById('loading-indicator');
+        if (on)
+            indicator.style.visibility = 'visible';
+        else
+            indicator.style.visibility = 'hidden';
     }
 
     window.onpopstate = function (e) {

@@ -8,6 +8,14 @@
     position: relative;
     top: 50px;
 }
+#loading-indicator {
+    pointer-events: none;
+    visibility: hidden;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    position: fixed;
+}
 .remote table {
     width: 100%;
 }
