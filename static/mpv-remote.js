@@ -253,6 +253,7 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
             });
         }());
     }
+    document.getElementById('sortbuttons').style.visibility = 'visible';
     window.playlist = {'files': [], 'current': -1};
     for (var i = 0; i < files.length; i++) {
         window.playlist.files.push(files[i].path.join('\\/\\/'));

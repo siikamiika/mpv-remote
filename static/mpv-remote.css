@@ -31,6 +31,9 @@ i {
     font-size: 50px; /* fallback */
     font-size: 15vmin;
 }
+#sortbuttons {
+    visibility: hidden;
+}
 .sortbutton {
     display: inline-block;
     text-align: center;
