@@ -86,9 +86,9 @@ function show_controls (path) {
     xhr('GET', '/static/buttons.html', null, function (buttons_html){
         document.getElementById('content').innerHTML = buttons_html;
         document.getElementById('filename').innerHTML = path[path.length - 1];
-        var vol = ('; ' + document.cookie).match(/; volume=(.*?)(;|$)/);
+        var vol = cookie('load', 'volume');
         if (vol)
-            document.getElementById('vol').value = vol[1];
+            document.getElementById('vol').value = vol;
         var controls = document.getElementsByClassName('control');
         for (var i = 0; i < controls.length; i++) {
             activate_control(controls[i]);
@@ -112,8 +112,49 @@ function control_mpv (command, val, onready) {
 
 function set_and_save_volume () {
     var vol = document.getElementById('vol').value;
-    document.cookie = 'volume=' + vol + '; max-age=31536000; ';
+    cookie('save', 'volume', vol);
     control_mpv('vol_set', vol);
+}
+
+function cookie (action, name, data) {
+    if (action == 'load') {
+        var pattern = new RegExp('; '+ name + '=(.*?)(;|$)');
+        var match = ('; ' + document.cookie).match(pattern);
+        if (match)
+            return match[1];
+        else
+            return '';
+    }
+    else if (action == 'save') {
+        document.cookie = name + '=' + data + '; max-age=31536000; '
+    }
+}
+
+function toggle_sorting (item) {
+    var sorting =  cookie('load', 'sorting').split('|');
+    function toggle (index, val1, val2) {
+        sorting[index] = sorting[index] == val1 ? val2 : val1;
+    }
+    if (item == 'filefoldersort') {
+        toggle(0, 'file', 'folder');
+    }
+    else if (item == 'foldersort-mode') {
+        toggle(1, 'modified', 'name');
+    }
+    else if (item == 'foldersort-order') {
+        toggle(2, 'asc', 'desc');
+    }
+    else if (item == 'filesort-mode') {
+        toggle(3, 'modified', 'name');
+    }
+    else if (item == 'filesort-order') {
+        toggle(4, 'asc', 'desc');
+    }
+    cookie('save', 'sorting', sorting.join('|'));
+    var state = window.location.hash.substring(1);
+    state = decodeURIComponent(state);
+    state = JSON.parse(state);
+    open_folder(state.open_folder);
 }
 
 function show_folder_content (content, file_dir_order, dirsort, dirsort_order, filesort, filesort_order) {
@@ -165,33 +206,51 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
     for (var i = 0; i < items.length; i++) {
         (function() {
             var item = items[i];
-            var filename = item.path[item.path.length - 1];
+            var path = item.path[item.path.length - 1];
             var contentlink = document.createElement('a');
-            var icon = document.createElement('i');
+            contentlink.className = 'contentlink';
             if (item.type == 'dir') {
                 var state = encode_state({'open_folder': item.path});
                 activate_link(contentlink, state);
-                icon.className = 'fa fa-folder';
-                contentlink.className = 'folder';
+                var iconclass = 'fa fa-folder';
+                var pathclass = 'folder';
             }
             else if (item.type == 'file') {
                 var state = encode_state({'play_file': item.path});
                 activate_link(contentlink, state);
                 var vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv'];
-                var ext = filename.split('.').pop();
+                var ext = path.split('.').pop();
                 if (vid_ext.indexOf(ext) > -1) {
-                    icon.className = 'fa fa-file-video-o';
-                    contentlink.className = 'video';
+                    var iconclass = 'fa fa-file-video-o';
+                    var pathclass = 'video';
                 }
                 else {
-                    contentlink.className = 'file';
+                    var iconclass = '';
+                    var pathclass = 'file';
                 }
             }
-            contentlink.appendChild(icon);
-            contentlink.appendChild(document.createTextNode(' ' + filename));
+            var modified = new Date(item.modified * 1000).toLocaleString();
+            contentlink.innerHTML = ('<i class="{0}"></i><span class="{1}">{2}</span><br>'+
+                                    '<span class="modified">{3}</span>').format(iconclass, pathclass, path, modified);
             var li = document.createElement('li');
             li.appendChild(contentlink);
             contentlinks.appendChild(li);
+        }());
+    }
+    var sorting = cookie('load', 'sorting').split('|');
+    var sort_controls = [];
+    sort_controls.push(document.getElementById('filefoldersort'));
+    sort_controls.push(document.getElementById('foldersort-mode'));
+    sort_controls.push(document.getElementById('foldersort-order'));
+    sort_controls.push(document.getElementById('filesort-mode'));
+    sort_controls.push(document.getElementById('filesort-order'));
+    for (var i = 0; i < sort_controls.length; i++) {
+        (function () {
+            sort_controls[i].innerHTML = sorting[i];
+            var id = sort_controls[i].id;
+            sort_controls[i].addEventListener('click', function (){
+                toggle_sorting(id);
+            });
         }());
     }
     window.playlist = {'files': [], 'current': -1};
@@ -229,7 +288,19 @@ function open_folder (path) {
         xhr('POST', '/dir', JSON.stringify(path), function (dircontent_json){
             dircontent_json = JSON.parse(dircontent_json);
             show_navigation_links(dircontent_json.path);
-            show_folder_content(dircontent_json.content, 'folder', 'modified', 'desc', 'name', 'asc');
+            var sorting = cookie('load', 'sorting');
+            if (!sorting) {
+                sorting = ['folder', 'modified', 'desc', 'name', 'asc'];
+                cookie('save', 'sorting', sorting.join('|'));
+            }
+            else
+                sorting = sorting.split('|');
+            var file_dir_order = sorting[0];
+            var dirsort = sorting[1];
+            var dirsort_order = sorting[2];
+            var filesort = sorting[3];
+            var filesort_order = sorting[4];
+            show_folder_content(dircontent_json.content, file_dir_order, dirsort, dirsort_order, filesort, filesort_order);
         });
     });
 }
@@ -278,6 +349,17 @@ window.onpopstate = function (e) {
 }
 
 window.onload = function () {
+    if (!String.prototype.format) { //http://stackoverflow.com/a/4673436/2444105
+      String.prototype.format = function() {
+        var args = arguments;
+        return this.replace(/{(\d+)}/g, function(match, number) {
+          return typeof args[number] != 'undefined'
+            ? args[number]
+            : match
+          ;
+        });
+      };
+    }
     xhr('GET', '/prefs', null, function (prefs_json) {
         prefs_json = JSON.parse(prefs_json);
         window.os = prefs_json.os;
