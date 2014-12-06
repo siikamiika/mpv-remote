@@ -21,18 +21,19 @@ function encode_state(state) {
 function play_file (path) {
     xhr('POST', '/play', JSON.stringify(path), function() {
         show_controls(path);
-        var playlist_index = window.playlist.files.indexOf(path.join('\\/\\/'));
+        var playlist_index = JSON.parse(localStorage.playlist_files).indexOf(path.join('\\/\\/'));
         if (playlist_index > -1) {
-            window.playlist.current = playlist_index;
+            localStorage.playlist_current = playlist_index;
         }
     });
 }
 
 function playlist_go (step) {
-    var new_value = window.playlist.current + step;
-    if (new_value > -1 && new_value < window.playlist.files.length) {
-        window.playlist.current = new_value;
-        var filename = window.playlist.files[window.playlist.current].split('\\/\\/');
+    var new_value = JSON.parse(localStorage.playlist_current) + step;
+    var playlist_files = JSON.parse(localStorage.playlist_files);
+    if (new_value > -1 && new_value < playlist_files.length) {
+        localStorage.playlist_current = new_value;
+        var filename = playlist_files[new_value].split('\\/\\/');
         play_file(filename);
         var state = encode_state({'play_file': filename});
         history.replaceState(state[0], '', state[1]);
@@ -84,11 +85,13 @@ function activate_control (c, repeat) {
 
 function show_controls (path) {
     xhr('GET', '/static/buttons.html', null, function (buttons_html){
+        var state = encode_state({'show_controls': path});
+        history.replaceState(state[0], '', state[1]);
         document.getElementById('content').innerHTML = buttons_html;
         document.getElementById('filename').innerHTML = path[path.length - 1];
-        var vol = cookie('load', 'volume');
+        var vol = localStorage.volume;
         if (vol)
-            document.getElementById('vol').value = vol;
+            document.getElementById('vol').value = JSON.parse(vol);
         var controls = document.getElementsByClassName('control');
         for (var i = 0; i < controls.length; i++) {
             activate_control(controls[i]);
@@ -112,26 +115,26 @@ function control_mpv (command, val, onready) {
 
 function set_and_save_volume () {
     var vol = document.getElementById('vol').value;
-    cookie('save', 'volume', vol);
+    localStorage.volume = vol;
     control_mpv('vol_set', vol);
 }
 
-function cookie (action, name, data) {
-    if (action == 'load') {
-        var pattern = new RegExp('; '+ name + '=(.*?)(;|$)');
-        var match = ('; ' + document.cookie).match(pattern);
-        if (match)
-            return match[1];
-        else
-            return '';
-    }
-    else if (action == 'save') {
-        document.cookie = name + '=' + data + '; max-age=31536000; '
-    }
-}
+// function cookie (action, name, data) {
+//     if (action == 'load') {
+//         var pattern = new RegExp('; '+ name + '=(.*?)(;|$)');
+//         var match = ('; ' + document.cookie).match(pattern);
+//         if (match)
+//             return match[1];
+//         else
+//             return '';
+//     }
+//     else if (action == 'save') {
+//         document.cookie = name + '=' + data + '; max-age=31536000; '
+//     }
+// }
 
 function toggle_sorting (item) {
-    var sorting =  cookie('load', 'sorting').split('|');
+    var sorting = JSON.parse(localStorage.sorting);
     function toggle (index, val1, val2) {
         sorting[index] = sorting[index] == val1 ? val2 : val1;
     }
@@ -150,7 +153,7 @@ function toggle_sorting (item) {
     else if (item == 'filesort-order') {
         toggle(4, 'asc', 'desc');
     }
-    cookie('save', 'sorting', sorting.join('|'));
+    localStorage.sorting = JSON.stringify(sorting);
     var state = window.location.hash.substring(1);
     state = decodeURIComponent(state);
     state = JSON.parse(state);
@@ -237,7 +240,7 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
             contentlinks.appendChild(li);
         }());
     }
-    var sorting = cookie('load', 'sorting').split('|');
+    var sorting = JSON.parse(localStorage.sorting);
     var sort_controls = [];
     sort_controls.push(document.getElementById('filefoldersort'));
     sort_controls.push(document.getElementById('foldersort-mode'));
@@ -254,10 +257,12 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
         }());
     }
     document.getElementById('sortbuttons').style.visibility = 'visible';
-    window.playlist = {'files': [], 'current': -1};
+    var playlist_files = [];
     for (var i = 0; i < files.length; i++) {
-        window.playlist.files.push(files[i].path.join('\\/\\/'));
+        playlist_files.push(files[i].path.join('\\/\\/'));
     }
+    localStorage.playlist_files = JSON.stringify(playlist_files);
+    localStorage.playlist_current = -1;
 }
 
 function show_navigation_links (parts) {
@@ -289,13 +294,13 @@ function open_folder (path) {
         xhr('POST', '/dir', JSON.stringify(path), function (dircontent_json){
             dircontent_json = JSON.parse(dircontent_json);
             show_navigation_links(dircontent_json.path);
-            var sorting = cookie('load', 'sorting');
+            var sorting = localStorage.sorting;
             if (!sorting) {
                 sorting = ['folder', 'modified', 'desc', 'name', 'asc'];
-                cookie('save', 'sorting', sorting.join('|'));
+                localStorage.sorting = JSON.stringify(sorting);
             }
             else
-                sorting = sorting.split('|');
+                sorting = JSON.parse(sorting);
             var file_dir_order = sorting[0];
             var dirsort = sorting[1];
             var dirsort_order = sorting[2];
@@ -340,12 +345,7 @@ function loading_indicator (on) {
 
 window.onpopstate = function (e) {
     if (e.state) {
-        var state = e.state;
-        if (state.play_file) {
-            state.show_controls = state.play_file;
-            delete state.play_file;
-        }
-        open_location(state);
+        open_location(e.state);
     }
 }
 

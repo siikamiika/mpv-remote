@@ -34,6 +34,9 @@ i {
 #sortbuttons {
     visibility: hidden;
 }
+.button {
+    cursor: pointer;
+}
 .sortbutton {
     display: inline-block;
     text-align: center;
