@@ -39,8 +39,6 @@ i {
 }
 .sortbutton {
     display: inline-block;
-    text-align: center;
-    cursor: pointer;
     background: #ccc;
     border: 1px solid gray;
     padding: 10px;
@@ -58,7 +56,9 @@ div {
     margin-bottom: 20px;
 }
 .contentlink {
-    width: 85%;
+    display: inline-block;
+    min-width: 200px;
+    max-width: 85%;
 }
 .modified {
     font-size: 80%;

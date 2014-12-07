@@ -228,7 +228,7 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
                     var pathclass = 'video';
                 }
                 else {
-                    var iconclass = '';
+                    var iconclass = 'fa fa-file-o';
                     var pathclass = 'file';
                 }
             }
@@ -241,6 +241,14 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
         }());
     }
     var sorting = JSON.parse(localStorage.sorting);
+    var icons = {
+        'file': 'fa-file-o',
+        'folder': 'fa-folder',
+        'modified': 'fa-clock-o',
+        'name': 'fa-sort-alpha-asc',
+        'asc': 'fa-sort-amount-asc',
+        'desc': 'fa-sort-amount-desc'
+    }
     var sort_controls = [];
     sort_controls.push(document.getElementById('filefoldersort'));
     sort_controls.push(document.getElementById('foldersort-mode'));
@@ -249,7 +257,9 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
     sort_controls.push(document.getElementById('filesort-order'));
     for (var i = 0; i < sort_controls.length; i++) {
         (function () {
-            sort_controls[i].innerHTML = sorting[i];
+            var icon = document.createElement('i');
+            icon.className = 'fa fa-2x '+icons[sorting[i]];
+            sort_controls[i].appendChild(icon);
             var id = sort_controls[i].id;
             sort_controls[i].addEventListener('click', function (){
                 toggle_sorting(id);
