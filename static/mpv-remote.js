@@ -21,7 +21,7 @@ function encode_state(state) {
 function play_file (path) {
     xhr('POST', '/play', JSON.stringify(path), function() {
         show_controls(path);
-        var playlist_index = JSON.parse(localStorage.playlist_files).indexOf(path.join('\\/\\/'));
+        var playlist_index = JSON.parse(localStorage.playlist_files).indexOf(path.join('(/)'));
         if (playlist_index > -1) {
             localStorage.playlist_current = playlist_index;
         }
@@ -33,7 +33,7 @@ function playlist_go (step) {
     var playlist_files = JSON.parse(localStorage.playlist_files);
     if (new_value > -1 && new_value < playlist_files.length) {
         localStorage.playlist_current = new_value;
-        var filename = playlist_files[new_value].split('\\/\\/');
+        var filename = playlist_files[new_value].split('(/)');
         play_file(filename);
         var state = encode_state({'play_file': filename});
         history.replaceState(state[0], '', state[1]);
@@ -259,10 +259,9 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
     document.getElementById('sortbuttons').style.visibility = 'visible';
     var playlist_files = [];
     for (var i = 0; i < files.length; i++) {
-        playlist_files.push(files[i].path.join('\\/\\/'));
+        playlist_files.push(files[i].path.join('(/)'));
     }
     localStorage.playlist_files = JSON.stringify(playlist_files);
-    localStorage.playlist_current = -1;
 }
 
 function show_navigation_links (parts) {
