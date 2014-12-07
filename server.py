@@ -10,7 +10,7 @@ import json
 import re
 from base64 import standard_b64encode
 from subprocess import Popen, PIPE, DEVNULL
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 
 mpv_executable = 'mpv'
@@ -178,7 +178,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
 
     def serve_static(self):
-        requested = unquote(self.path[len('/static/'):])
+        requested = unquote(self.url_parsed.path[len('/static/'):])
         static_dir = script_path / 'static'
         if requested not in os.listdir(str(static_dir)):
             return self.respond_notfound('file not found'.encode())
@@ -224,12 +224,13 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             return self.ask_auth()
 
         try:
-            if self.path.startswith('/static/'):
+            self.url_parsed = urlparse(self.path)
+            if self.url_parsed.path.startswith('/static/'):
                 self.serve_static()
-            elif self.path == '/':
+            elif self.url_parsed.path == '/':
                 index = script_path / 'static' / 'mpv-remote.html'
                 self.respond_ok(index.open('rb').read())
-            elif self.path == '/prefs':
+            elif self.url_parsed.path == '/prefs':
                 prefs = dict(os=os.name, home=Path(expanduser('~')).parts, sep=os.sep)
                 self.respond_ok(json.dumps(prefs).encode(), 'text/plain; charset=utf-8')
             else:

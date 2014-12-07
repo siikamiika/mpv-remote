@@ -1,4 +1,7 @@
-function xhr (type, path, data, onready) {
+function xhr (type, path, data, onready, cachebusting, async) {
+    if (!(cachebusting === false)) var cachebusting = true;
+    if (type == 'POST') var cachebusting = false;
+    if (!(async === false)) var async = true;
     loading_indicator(true);
     if (!onready) {
         onready = function(){};
@@ -10,7 +13,7 @@ function xhr (type, path, data, onready) {
             onready(req.responseText);
         }
     }
-    req.open(type, path, true);
+    req.open(type, path + (cachebusting ? sessionStorage.cachebuster : ''), async);
     req.send(data);
 }
 
@@ -21,18 +24,18 @@ function encode_state(state) {
 function play_file (path) {
     xhr('POST', '/play', JSON.stringify(path), function() {
         show_controls(path);
-        var playlist_index = JSON.parse(localStorage.playlist_files).indexOf(path.join('(/)'));
+        var playlist_index = JSON.parse(sessionStorage.playlist_files).indexOf(path.join('(/)'));
         if (playlist_index > -1) {
-            localStorage.playlist_current = playlist_index;
+            sessionStorage.playlist_current = playlist_index;
         }
     });
 }
 
 function playlist_go (step) {
-    var new_value = JSON.parse(localStorage.playlist_current) + step;
-    var playlist_files = JSON.parse(localStorage.playlist_files);
+    var new_value = JSON.parse(sessionStorage.playlist_current) + step;
+    var playlist_files = JSON.parse(sessionStorage.playlist_files);
     if (new_value > -1 && new_value < playlist_files.length) {
-        localStorage.playlist_current = new_value;
+        sessionStorage.playlist_current = new_value;
         var filename = playlist_files[new_value].split('(/)');
         play_file(filename);
         var state = encode_state({'play_file': filename});
@@ -271,7 +274,7 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
     for (var i = 0; i < files.length; i++) {
         playlist_files.push(files[i].path.join('(/)'));
     }
-    localStorage.playlist_files = JSON.stringify(playlist_files);
+    sessionStorage.playlist_files = JSON.stringify(playlist_files);
 }
 
 function show_navigation_links (parts) {
@@ -352,6 +355,12 @@ function loading_indicator (on) {
         indicator.style.visibility = 'hidden';
 }
 
+function reset_and_reload () {
+    sessionStorage.clear();
+    localStorage.clear();
+    window.onload();
+}
+
 window.onpopstate = function (e) {
     if (e.state) {
         open_location(e.state);
@@ -359,6 +368,7 @@ window.onpopstate = function (e) {
 }
 
 window.onload = function () {
+    sessionStorage.cachebuster = '?' + new Date().getTime();
     if (!String.prototype.format) { //http://stackoverflow.com/a/4673436/2444105
       String.prototype.format = function() {
         var args = arguments;
