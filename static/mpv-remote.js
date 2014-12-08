@@ -109,6 +109,9 @@ function show_controls (path) {
         document.getElementById('pl_next').addEventListener('click', function(e) {
             playlist_go(1);
         }, false);
+        document.getElementById('replay').addEventListener('click', function(e) {
+            playlist_go(0);
+        })
     });
 }
 
