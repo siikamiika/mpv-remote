@@ -117,15 +117,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, *args, **kwargs):
         if self.command == 'POST':
-            if not hasattr(self.server, 'last_logmsg'):
-                self.server.last_logmsg = [self.POST_data, 0]
-            if self.server.last_logmsg[0] == self.POST_data:
-                self.server.last_logmsg[1] += 1
-            else:
-                self.server.last_logmsg = [self.POST_data, 0]
-                sys.stderr.write('\n')
-            sys.stderr.write('\r({counter}) {addr} - - [{datetime}] "POST {path} {req_ver}" {statuscode} {data}'.format(
-                counter=self.server.last_logmsg[1],
+            sys.stderr.write('{addr} - - [{datetime}] "POST {path} {req_ver}" {statuscode} {data}\n'.format(
                 addr=self.address_string(),
                 datetime=self.log_date_time_string(),
                 path=self.path,
@@ -133,7 +125,6 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 statuscode=args[2],
                 data=self.POST_data.decode(),
                 ))
-            self.server.last_logmsg[0] = self.POST_data
         else:
             BaseHTTPRequestHandler.log_message(self, *args, **kwargs)
 
