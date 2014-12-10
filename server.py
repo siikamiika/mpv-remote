@@ -102,14 +102,10 @@ class FolderContent(object):
         return drives
 
 
-class MpvProcess(object):
-    def __init__(self):
-        self.mpv_process = None
+class MpvServer(ThreadingMixIn, HTTPServer):
 
-
-class MpvServer(ThreadingMixIn, HTTPServer, MpvProcess):
-    pass
-
+    def add_config(self, config):
+        self.config = config
 
 class MpvRequestHandler(BaseHTTPRequestHandler):
 
@@ -165,7 +161,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         except: pass
         playlist = [fpath]
         cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs']
-        cmd += config.mpv_config() + config.folder_config(fpath) + ['--'] + playlist
+        cmd += self.server.config.mpv_config() + self.server.config.folder_config(fpath) + ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
 
     def serve_static(self):
@@ -205,13 +201,13 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         command, val = self.sanitize(command, val)
         try:
             mpv_stdin = self.server.mpv_process.stdin
-            mpv_stdin.write((config.commands[command].format(val) + '\n').encode())
+            mpv_stdin.write((self.server.config.commands[command].format(val) + '\n').encode())
             mpv_stdin.flush()
         except Exception as e: print(e)
 
     def do_GET(self):
 
-        if not config.login(self.headers.get('Authorization')):
+        if not self.server.config.login(self.headers.get('Authorization')):
             return self.ask_auth()
 
         try:
@@ -231,7 +227,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
 
-        if not config.login(self.headers.get('Authorization')):
+        if not self.server.config.login(self.headers.get('Authorization')):
             return self.ask_auth()
 
         content_length = int(self.headers.get('Content-Length'))
@@ -256,6 +252,6 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    config = Config(script_path / 'preferences')
     srv = MpvServer(('', 9876), MpvRequestHandler)
+    srv.add_config(Config(script_path / 'preferences'))
     srv.serve_forever()
