@@ -116,6 +116,7 @@ function show_controls (path) {
 }
 
 function control_mpv (command, val, onready) {
+    if (!val) val = undefined;
     xhr('POST', '/control', JSON.stringify({'command': command, 'val': val}), onready);
 }
 

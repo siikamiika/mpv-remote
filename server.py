@@ -230,7 +230,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         if not self.server.config.login(self.headers.get('Authorization')):
             return self.ask_auth()
 
-        content_length = int(self.headers.get('Content-Length'))
+        content_length = int(self.headers.get('Content-Length') or 0)
         self.POST_data = self.rfile.read(content_length)
 
         try:
@@ -247,6 +247,8 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 command, val = command.get('command'), command.get('val')
                 self.control_mpv(command, val)
                 self.respond_ok()
+            else:
+                return self.respond_notfound()
         except Exception as e:
             self.respond_notfound(str(e).encode())
 
