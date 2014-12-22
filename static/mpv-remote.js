@@ -21,25 +21,39 @@ function encode_state(state) {
     return [state, '#' + encodeURIComponent(JSON.stringify(state))];
 }
 
-function play_file (path) {
+function init_playlist (path) {
+    var playlist_folder = JSON.stringify(path.slice(0, -1));
+    var playlist_index_key = playlist_folder + 'playlist_index';
+    var playlist = JSON.parse(localStorage.getItem(playlist_folder));
+    var playlist_index = -1;
+    for (var i = 0; i < playlist.length; i++) {
+        if (playlist[i] === path[path.length - 1]) {
+            playlist_index = i;
+            break
+        }
+    }
+    localStorage.setItem(playlist_index_key, playlist_index);
+}
+
+function play_file (path, first) {
     xhr('POST', '/play', JSON.stringify(path), function() {
         show_controls(path);
-        var playlist_index = JSON.parse(sessionStorage.playlist_files).indexOf(path.join('(/)'));
-        if (playlist_index > -1) {
-            sessionStorage.playlist_current = playlist_index;
-        }
+        if (first)
+            init_playlist(path);
     });
 }
 
 function playlist_go (step) {
-    var new_value = JSON.parse(sessionStorage.playlist_current) + step;
-    var playlist_files = JSON.parse(sessionStorage.playlist_files);
+    var playlist_folder = history.state.show_controls.slice(0, -1);
+    var playlist_folder_str = JSON.stringify(playlist_folder);
+    var new_value = parseInt(JSON.parse(localStorage.getItem(playlist_folder_str + 'playlist_index'))) + step;
+    var playlist_files = JSON.parse(localStorage.getItem(playlist_folder_str));
     if (new_value > -1 && new_value < playlist_files.length) {
-        sessionStorage.playlist_current = new_value;
-        var filename = playlist_files[new_value].split('(/)');
-        play_file(filename);
+        localStorage.setItem(playlist_folder_str + 'playlist_index', new_value);
+        var filename = playlist_folder.concat(playlist_files[new_value]);
         var state = encode_state({'play_file': filename});
         history.replaceState(state[0], '', state[1]);
+        play_file(filename);
     }
 }
 
@@ -167,7 +181,7 @@ function toggle_sorting (item) {
     open_folder(state.open_folder);
 }
 
-function show_folder_content (content, file_dir_order, dirsort, dirsort_order, filesort, filesort_order) {
+function show_folder_content (content_json, file_dir_order, dirsort, dirsort_order, filesort, filesort_order) {
     // file_dir_order: 'file' or 'folder' (which first)
     // dirsort and filesort: 'modified' or 'name'
     // order for dirsort and filesort: 'asc' or 'desc'
@@ -199,12 +213,12 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
     }
     var files = [];
     var folders = [];
-    for (var i = 0; i < content.length; i++) {
-        if (content[i].type == 'dir') {
-            folders.push(content[i]);
+    for (var i = 0; i < content_json.content.length; i++) {
+        if (content_json.content[i].type == 'dir') {
+            folders.push(content_json.content[i]);
         }
-        else if (content[i].type == 'file') {
-            files.push(content[i]);
+        else if (content_json.content[i].type == 'file') {
+            files.push(content_json.content[i]);
         }
     }
     files.sort(compare_fn(filesort, filesort_order));
@@ -276,9 +290,9 @@ function show_folder_content (content, file_dir_order, dirsort, dirsort_order, f
     document.getElementById('sortbuttons').style.visibility = 'visible';
     var playlist_files = [];
     for (var i = 0; i < files.length; i++) {
-        playlist_files.push(files[i].path.join('(/)'));
+        playlist_files.push(files[i].path[files[i].path.length - 1]);
     }
-    sessionStorage.playlist_files = JSON.stringify(playlist_files);
+    localStorage.setItem(JSON.stringify(content_json.path), JSON.stringify(playlist_files));
 }
 
 function show_navigation_links (parts) {
@@ -322,14 +336,14 @@ function open_folder (path) {
             var dirsort_order = sorting[2];
             var filesort = sorting[3];
             var filesort_order = sorting[4];
-            show_folder_content(dircontent_json.content, file_dir_order, dirsort, dirsort_order, filesort, filesort_order);
+            show_folder_content(dircontent_json, file_dir_order, dirsort, dirsort_order, filesort, filesort_order);
         });
     });
 }
 
 function open_location (location) {
     if (location.play_file) {
-        play_file(location.play_file);
+        play_file(location.play_file, true);
     }
     else if (location.open_folder) {
         open_folder(location.open_folder);
@@ -359,10 +373,9 @@ function loading_indicator (on) {
         indicator.style.visibility = 'hidden';
 }
 
-function reset_and_reload () {
+function reset () {
     sessionStorage.clear();
     localStorage.clear();
-    window.onload();
 }
 
 window.onpopstate = function (e) {
