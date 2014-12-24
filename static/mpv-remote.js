@@ -297,31 +297,20 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
 }
 
 function show_navigation_links (parts) {
-    var navlinks = document.getElementById('navlinks');
-    var root = document.createElement('a');
-    root.className = 'navlink top';
-    root.innerHTML = 'ROOT'
-    var state = encode_state({'open_folder': ['ROOT']});
-    activate_link(root, state);
-    navlinks.appendChild(root);
-    if (window.os == 'nt') {
-        var winroot = document.createElement('a');
-        winroot.className = 'navlink top';
-        winroot.innerHTML = 'WINROOT';
-        var state = encode_state({'open_folder': ['WINROOT']});
-        activate_link(winroot, state);
-        navlinks.appendChild(winroot);
-    }
+	var navlinks = document.getElementById('navlinks');
+	function create_navlink(text, path, top) {
+		var navlink = document.createElement('a');
+		navlink.className = 'navlink';
+		if (top) navlink.className += ' top';
+		navlink.innerHTML = text;
+		var state = encode_state({'open_folder': path});
+		activate_link(navlink, state);
+		navlinks.appendChild(navlink);
+	}
+	create_navlink('YTDL', ['YTDL'], true);
+	create_navlink('ROOT', [window.os == 'nt' ? 'WINROOT' : '/'], true);
     for (var i = 0; i < parts.length; i++) {
-        (function() {
-            var navlink = document.createElement('a');
-            var link = parts.slice(0, i+1);
-            var state = encode_state({'open_folder': link});
-            activate_link(navlink, state);
-            navlink.className = 'navlink';
-            navlink.innerHTML = parts[i];
-            navlinks.appendChild(navlink);
-        }());
+		create_navlink(parts[i], parts.slice(0, i+1));
     }
 }
 

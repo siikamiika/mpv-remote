@@ -97,9 +97,13 @@ class FolderContent(object):
             print(e)
             return
 
+    def is_drive(self, d):
+        try: return d.is_dir()
+        except: return False
+
     def _list_windows_drives(self):
         drives = [Path('{}:\\'.format(c)) for c in map(chr, range(65, 91))]
-        drives = [self._item_info(d) for d in drives if d.is_dir()]
+        drives = [self._item_info(d) for d in drives if self.is_drive(d)]
         return drives
 
 
