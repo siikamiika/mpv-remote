@@ -181,36 +181,37 @@ function toggle_sorting (item) {
     open_folder(state.open_folder);
 }
 
+function compare_fn (attribute, order) {
+    return (function (a,b) {
+        if (order == 'asc') {}
+        else if (order == 'desc') {
+            var tmp = a;
+            a = b;
+            b = tmp;
+        }
+        var cmp_a, cmp_b;
+        if (attribute == 'name') {
+            cmp_a = a.path[a.path.length - 1].toLowerCase();
+            cmp_b = b.path[b.path.length - 1].toLowerCase();
+        }
+        else if (attribute == 'modified') {
+            cmp_a = a.modified;
+            cmp_b = b.modified;
+        }
+        if (cmp_a < cmp_b)
+            return -1;
+        else if (cmp_a > cmp_b)
+            return 1;
+        else
+            return 0;
+    });
+}
+
 function show_folder_content (content_json, file_dir_order, dirsort, dirsort_order, filesort, filesort_order) {
     // file_dir_order: 'file' or 'folder' (which first)
     // dirsort and filesort: 'modified' or 'name'
     // order for dirsort and filesort: 'asc' or 'desc'
     var contentlinks = document.getElementById('contentlinks');
-    function compare_fn (attribute, order) {
-        return (function (a,b) {
-            if (order == 'asc') {}
-            else if (order == 'desc') {
-                var tmp = a;
-                a = b;
-                b = tmp;
-            }
-            var cmp_a, cmp_b;
-            if (attribute == 'name') {
-                cmp_a = a.path[a.path.length - 1].toLowerCase();
-                cmp_b = b.path[b.path.length - 1].toLowerCase();
-            }
-            else if (attribute == 'modified') {
-                cmp_a = a.modified;
-                cmp_b = b.modified;
-            }
-            if (cmp_a < cmp_b)
-                return -1;
-            else if (cmp_a > cmp_b)
-                return 1;
-            else
-                return 0;
-        });
-    }
     var files = [];
     var folders = [];
     for (var i = 0; i < content_json.content.length; i++) {
@@ -297,10 +298,16 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
 
 function show_navigation_links (parts) {
     var navlinks = document.getElementById('navlinks');
+    var root = document.createElement('a');
+    root.className = 'navlink top';
+    root.innerHTML = 'ROOT'
+    var state = encode_state({'open_folder': ['ROOT']});
+    activate_link(root, state);
+    navlinks.appendChild(root);
     if (window.os == 'nt') {
         var winroot = document.createElement('a');
-        winroot.className = 'navlink';
-        winroot.innerHTML = '(root)';
+        winroot.className = 'navlink top';
+        winroot.innerHTML = 'WINROOT';
         var state = encode_state({'open_folder': ['WINROOT']});
         activate_link(winroot, state);
         navlinks.appendChild(winroot);

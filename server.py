@@ -9,8 +9,9 @@ from os.path import splitext, dirname, realpath, expanduser
 import json
 import re
 from base64 import standard_b64encode
-from subprocess import Popen, PIPE, DEVNULL
+from subprocess import Popen, PIPE, DEVNULL, check_output
 from urllib.parse import unquote, urlparse
+from datetime import datetime
 
 
 mpv_executable = 'mpv'
@@ -102,6 +103,64 @@ class FolderContent(object):
         return drives
 
 
+class YtdlPlaylistContent(object):
+
+    def __init__(self, url):
+        self.url = url
+        self._parse_playlist()
+        self._get_playlist()
+
+    def as_json(self):
+        return json.dumps(dict(
+            path=self.url,
+            type=self.type,
+            content=self.playlist
+            ))
+
+    def _detect_site(self):
+        sites = [
+            ('http?s://(www)?\.youtube\.com', 'youtube'),
+            ('http://www.crunchyroll.com', 'crunchyroll'),
+            ('http?s://', 'other')
+            ]
+        for pattern, name in sites:
+            if re.search(pattern, self.url):
+                return name
+
+    def _get_playlist(self):
+        site = self._detect_site()
+        self.playlist = []
+        for url in [e['url'] for e in self.raw_playlist]:
+            entry = dict()
+            if site == 'youtube':
+                self.type = 'youtube'
+                try:
+                    info = json.loads(check_output(['youtube-dl', '-J', url]).decode())
+                except Exception as e:
+                    print(e)
+                    continue
+                entry['url'] = 'ytdl://' + url
+                entry['date'] =  float(datetime.strptime(info['upload_date'], '%Y%m%d').timestamp())
+                entry['length'] = info['duration']
+                entry['title'] = info['title']
+            elif site == 'crunchyroll':
+                self.type = 'crunchyroll'
+                entry['url'] = url
+                entry['title'] = url.split('/')[-1]
+            else:
+                self.type = 'unknown'
+                entry['url'] = url
+                entry['title'] = url
+            self.playlist.append(entry)
+
+
+    def _parse_playlist(self):
+        ytdl_output = check_output(['youtube-dl', '-J', '--flat-playlist', self.url])
+        self.raw_playlist = json.loads(ytdl_output.decode())['entries']
+
+
+
+
 class MpvServer(ThreadingMixIn, HTTPServer):
 
     def add_config(self, config):
@@ -152,7 +211,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def play_file(self, fpath):
+    def play_file(self, fpath, ytdl=False):
         try:
             p = self.server.mpv_process
             p.stdin.write(b'quit\n')
@@ -161,7 +220,9 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         except: pass
         playlist = [fpath]
         cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs']
-        cmd += self.server.config.mpv_config() + self.server.config.folder_config(fpath) + ['--'] + playlist
+        cmd += self.server.config.mpv_config() + self.server.config.folder_config(fpath)
+        if ytdl: cmd += ['--ytdl']
+        cmd += ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
 
     def serve_static(self):
@@ -238,6 +299,14 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 dir_path = os.path.join(*json.loads(self.POST_data.decode()))
                 c = FolderContent(dir_path)
                 self.respond_ok(c.as_json().encode(), 'application/json')
+            elif self.path == '/ytdl_playlist':
+                url = json.loads(self.POST_data.decode())
+                playlist = YtdlPlaylistContent(url)
+                self.respond_ok(playlist.as_json().encode(), 'application/json')
+            elif self.path == '/ytdl_play':
+                url = json.loads(self.POST_data.decode())
+                self.play_file(url, ytdl=True)
+                self.respond_ok()
             elif self.path == '/play':
                 file_path = os.path.join(*json.loads(self.POST_data.decode()))
                 self.play_file(file_path)

@@ -6,6 +6,9 @@
     margin-bottom: 5px;
     word-wrap: break-word;
 }
+.navlink.top {
+    background: #555;
+}
 #content {
     position: relative;
     top: 50px;
