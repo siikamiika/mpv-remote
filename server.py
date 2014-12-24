@@ -65,18 +65,15 @@ class Config(object):
 
 class FolderContent(object):
 
-    def __init__(self, path):
+    def __init__(self, path, config):
         self.path = Path(path)
+        self.config = config
         if str(path) == 'WINROOT':
-            self.content = self._list_windows_drives()
+            self._windows_drives()
+        elif str(path) == 'YTDL':
+            self._ytdl_playlists()
         else:
-            self.content = []
-            try:
-                for item in self.path.iterdir():
-                    i = self._item_info(item)
-                    if i: self.content.append(i)
-            except Exception as e:
-                print(e)
+            self._folder_content()
 
     def as_json(self):
         return json.dumps(dict(
@@ -97,14 +94,29 @@ class FolderContent(object):
             print(e)
             return
 
+    def _folder_content(self):
+        self.content = []
+        try:
+            for item in self.path.iterdir():
+                i = self._item_info(item)
+                if i: self.content.append(i)
+        except Exception as e:
+            print(e)
+
     def is_drive(self, d):
         try: return d.is_dir()
         except: return False
 
-    def _list_windows_drives(self):
+    def _windows_drives(self):
         drives = [Path('{}:\\'.format(c)) for c in map(chr, range(65, 91))]
         drives = [self._item_info(d) for d in drives if self.is_drive(d)]
-        return drives
+        self.content = drives
+
+    def _ytdl_playlists(self):
+        ytdl_playlists = self.config.dir / 'ytdl.conf'
+        with ytdl_playlists.open() as f:
+            self.content = [dict(type='ytdl_playlist', path=url.strip())
+                for url in f.read().splitlines() if url.strip()]
 
 
 class YtdlPlaylistContent(object):
@@ -301,7 +313,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         try:
             if self.path == '/dir':
                 dir_path = os.path.join(*json.loads(self.POST_data.decode()))
-                c = FolderContent(dir_path)
+                c = FolderContent(dir_path, self.server.config)
                 self.respond_ok(c.as_json().encode(), 'application/json')
             elif self.path == '/ytdl_playlist':
                 url = json.loads(self.POST_data.decode())

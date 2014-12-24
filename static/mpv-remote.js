@@ -35,8 +35,8 @@ function init_playlist (path) {
     localStorage.setItem(playlist_index_key, playlist_index);
 }
 
-function play_file (path, first) {
-    xhr('POST', '/play', JSON.stringify(path), function() {
+function play_file (path, first, ytdl) {
+    xhr('POST', !ytdl ? '/play' : '/ytdl_play', JSON.stringify(path), function() {
         show_controls(path);
         if (first)
             init_playlist(path);
@@ -214,6 +214,7 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
     var contentlinks = document.getElementById('contentlinks');
     var files = [];
     var folders = [];
+	var ytdl_playlists = [];
     for (var i = 0; i < content_json.content.length; i++) {
         if (content_json.content[i].type == 'dir') {
             folders.push(content_json.content[i]);
@@ -221,6 +222,9 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
         else if (content_json.content[i].type == 'file') {
             files.push(content_json.content[i]);
         }
+		else if (content_json.content[i].type == 'ytdl_playlist') {
+			ytdl_playlists.push(content_json.content[i]);
+		}
     }
     files.sort(compare_fn(filesort, filesort_order));
     folders.sort(compare_fn(dirsort, dirsort_order));
@@ -262,6 +266,17 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
             contentlinks.appendChild(li);
         }());
     }
+	for (var i = 0; i < ytdl_playlists.length; i++) {
+		var contentlink = document.createElement('a');
+		var state = encode_state({'ytdl_playlist': ytdl_playlists[i].path});
+		activate_link(contentlink, state);
+		var pathclass = 'ytdl-playlist';
+		contentlink.className = 'contentlink';
+		contentlink.innerHTML = '<span class="{0}">{1}</span>'.format(pathclass, ytdl_playlists[i].path);
+		var li = document.createElement('li');
+		li.appendChild(contentlink);
+		contentlinks.appendChild(li);
+	}
     var sorting = JSON.parse(localStorage.sorting);
     var icons = {
         'file': 'fa-file-o',
@@ -298,19 +313,24 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
 
 function show_navigation_links (parts) {
 	var navlinks = document.getElementById('navlinks');
-	function create_navlink(text, path, top) {
+	function create_navlink(text, path, top, _unclickable) {
 		var navlink = document.createElement('a');
 		navlink.className = 'navlink';
 		if (top) navlink.className += ' top';
 		navlink.innerHTML = text;
-		var state = encode_state({'open_folder': path});
-		activate_link(navlink, state);
+		if (!_unclickable) {
+			var state = encode_state({'open_folder': path});
+			activate_link(navlink, state);
+		}
 		navlinks.appendChild(navlink);
 	}
 	create_navlink('YTDL', ['YTDL'], true);
 	create_navlink('ROOT', [window.os == 'nt' ? 'WINROOT' : '/'], true);
+	var unclickable = false;
+	if (parts[0] == 'YTDL')
+		unclickable = true;
     for (var i = 0; i < parts.length; i++) {
-		create_navlink(parts[i], parts.slice(0, i+1));
+		create_navlink(parts[i], parts.slice(0, i+1), false, unclickable);
     }
 }
 
@@ -337,6 +357,23 @@ function open_folder (path) {
     });
 }
 
+function open_ytdl_playlist (url) {
+	xhr('GET', '/static/browser.html', null, function (browser_html) {
+		document.getElementById('content').innerHTML = browser_html;
+		xhr('POST', '/ytdl_playlist', JSON.stringify(url), function (playlist_content) {
+			playlist_content = JSON.parse(playlist_content);
+			show_navigation_links(['YTDL', playlist_content.path]);
+			var content = document.getElementById('content');
+			for (var i = 0; i < playlist_content.content.length; i++) {
+				(function () {
+					console.log(playlist_content.content[i]);
+					//TODO
+				}());
+			}
+		});
+	});
+}
+
 function open_location (location) {
     if (location.play_file) {
         play_file(location.play_file, true);
@@ -347,6 +384,12 @@ function open_location (location) {
     else if (location.show_controls) {
         show_controls(location.show_controls);
     }
+	else if (location.ytdl_playlist) {
+		open_ytdl_playlist(location.ytdl_playlist);
+	}
+	else if (location.ytdl_play) {
+		play_file(location.ytdl_play, true, true);
+	}
 }
 
 function activate_link (element, state, replace_history) {

@@ -76,6 +76,6 @@ a {
     color: black;
     text-decoration: none;
 }
-.video, .file, .folder {
+.video, .file, .folder, .ytdl-playlist {
     word-wrap: break-word;
 }

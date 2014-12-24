@@ -5,3 +5,4 @@ __pycache__/
 preferences/login
 preferences/config
 preferences/mpv.conf
+preferences/ytdl.conf
