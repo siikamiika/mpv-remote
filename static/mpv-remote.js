@@ -36,7 +36,13 @@ function init_playlist (path) {
 }
 
 function play_file (path, first, ytdl) {
-    xhr('POST', !ytdl ? '/play' : '/ytdl_play', JSON.stringify(path), function() {
+    var playpath = path;
+    var url = '/play'
+    if (ytdl) {
+        playpath = path[path.length - 1];
+        url = '/ytdl_play';
+    }
+    xhr('POST', url, JSON.stringify(playpath), function() {
         show_controls(path);
         if (first)
             init_playlist(path);
@@ -44,6 +50,12 @@ function play_file (path, first, ytdl) {
 }
 
 function playlist_go (step) {
+    var ytdl = false;
+    var play_type = 'play_file';
+    if (history.state.show_controls[0] == 'YTDL') {
+        ytdl = true;
+        play_type = 'ytdl_play';
+    }
     var playlist_folder = history.state.show_controls.slice(0, -1);
     var playlist_folder_str = JSON.stringify(playlist_folder);
     var new_value = parseInt(JSON.parse(localStorage.getItem(playlist_folder_str + 'playlist_index'))) + step;
@@ -51,9 +63,9 @@ function playlist_go (step) {
     if (new_value > -1 && new_value < playlist_files.length) {
         localStorage.setItem(playlist_folder_str + 'playlist_index', new_value);
         var filename = playlist_folder.concat(playlist_files[new_value]);
-        var state = encode_state({'play_file': filename});
+        var state = encode_state({play_type: filename});
         history.replaceState(state[0], '', state[1]);
-        play_file(filename);
+        play_file(filename, false, ytdl);
     }
 }
 
@@ -214,7 +226,7 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
     var contentlinks = document.getElementById('contentlinks');
     var files = [];
     var folders = [];
-	var ytdl_playlists = [];
+    var ytdl_playlists = [];
     for (var i = 0; i < content_json.content.length; i++) {
         if (content_json.content[i].type == 'dir') {
             folders.push(content_json.content[i]);
@@ -222,9 +234,9 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
         else if (content_json.content[i].type == 'file') {
             files.push(content_json.content[i]);
         }
-		else if (content_json.content[i].type == 'ytdl_playlist') {
-			ytdl_playlists.push(content_json.content[i]);
-		}
+        else if (content_json.content[i].type == 'ytdl_playlist') {
+            ytdl_playlists.push(content_json.content[i]);
+        }
     }
     files.sort(compare_fn(filesort, filesort_order));
     folders.sort(compare_fn(dirsort, dirsort_order));
@@ -266,17 +278,17 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
             contentlinks.appendChild(li);
         }());
     }
-	for (var i = 0; i < ytdl_playlists.length; i++) {
-		var contentlink = document.createElement('a');
-		var state = encode_state({'ytdl_playlist': ytdl_playlists[i].path});
-		activate_link(contentlink, state);
-		var pathclass = 'ytdl-playlist';
-		contentlink.className = 'contentlink';
-		contentlink.innerHTML = '<span class="{0}">{1}</span>'.format(pathclass, ytdl_playlists[i].path);
-		var li = document.createElement('li');
-		li.appendChild(contentlink);
-		contentlinks.appendChild(li);
-	}
+    for (var i = 0; i < ytdl_playlists.length; i++) {
+        var contentlink = document.createElement('a');
+        var state = encode_state({'ytdl_playlist': ytdl_playlists[i].path});
+        activate_link(contentlink, state);
+        var pathclass = 'ytdl-playlist';
+        contentlink.className = 'contentlink';
+        contentlink.innerHTML = '<span class="{0}">{1}</span>'.format(pathclass, ytdl_playlists[i].path);
+        var li = document.createElement('li');
+        li.appendChild(contentlink);
+        contentlinks.appendChild(li);
+    }
     var sorting = JSON.parse(localStorage.sorting);
     var icons = {
         'file': 'fa-file-o',
@@ -312,25 +324,25 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
 }
 
 function show_navigation_links (parts) {
-	var navlinks = document.getElementById('navlinks');
-	function create_navlink(text, path, top, _unclickable) {
-		var navlink = document.createElement('a');
-		navlink.className = 'navlink';
-		if (top) navlink.className += ' top';
-		navlink.innerHTML = text;
-		if (!_unclickable) {
-			var state = encode_state({'open_folder': path});
-			activate_link(navlink, state);
-		}
-		navlinks.appendChild(navlink);
-	}
-	create_navlink('YTDL', ['YTDL'], true);
-	create_navlink('ROOT', [window.os == 'nt' ? 'WINROOT' : '/'], true);
-	var unclickable = false;
-	if (parts[0] == 'YTDL')
-		unclickable = true;
+    var navlinks = document.getElementById('navlinks');
+    function create_navlink(text, path, top, _unclickable) {
+        var navlink = document.createElement('a');
+        navlink.className = 'navlink';
+        if (top) navlink.className += ' top';
+        navlink.innerHTML = text;
+        if (!_unclickable) {
+            var state = encode_state({'open_folder': path});
+            activate_link(navlink, state);
+        }
+        navlinks.appendChild(navlink);
+    }
+    create_navlink('YTDL', ['YTDL'], true);
+    create_navlink('ROOT', [window.os == 'nt' ? 'WINROOT' : '/'], true);
+    var unclickable = false;
+    if (parts[0] == 'YTDL')
+        unclickable = true;
     for (var i = 0; i < parts.length; i++) {
-		create_navlink(parts[i], parts.slice(0, i+1), false, unclickable);
+        create_navlink(parts[i], parts.slice(0, i+1), false, unclickable);
     }
 }
 
@@ -358,20 +370,29 @@ function open_folder (path) {
 }
 
 function open_ytdl_playlist (url) {
-	xhr('GET', '/static/browser.html', null, function (browser_html) {
-		document.getElementById('content').innerHTML = browser_html;
-		xhr('POST', '/ytdl_playlist', JSON.stringify(url), function (playlist_content) {
-			playlist_content = JSON.parse(playlist_content);
-			show_navigation_links(['YTDL', playlist_content.path]);
-			var content = document.getElementById('content');
-			for (var i = 0; i < playlist_content.content.length; i++) {
-				(function () {
-					console.log(playlist_content.content[i]);
-					//TODO
-				}());
-			}
-		});
-	});
+    xhr('GET', '/static/ytdl_browser.html', null, function (browser_html) {
+        document.getElementById('content').innerHTML = browser_html;
+        xhr('POST', '/ytdl_playlist', JSON.stringify(url), function (playlist_content) {
+            playlist_content = JSON.parse(playlist_content);
+            show_navigation_links(['YTDL', playlist_content.path]);
+            var contentlinks = document.getElementById('contentlinks');
+            var playlist_urls = [];
+            for (var i = 0; i < playlist_content.content.length; i++) {
+                (function () {
+                    playlist_urls.push(playlist_content.content[i].url)
+                    var contentlink = document.createElement('a');
+                    contentlink.className = 'contentlink';
+                    contentlink.innerHTML = '<span class="video">{0}</span>'.format(playlist_content.content[i].title);
+                    var state = encode_state({'ytdl_play': ['YTDL', playlist_content.path, playlist_content.content[i].url]});
+                    activate_link(contentlink, state);
+                    var li = document.createElement('li');
+                    li.appendChild(contentlink);
+                    contentlinks.appendChild(li);
+                }());
+            }
+            localStorage.setItem(JSON.stringify(['YTDL', playlist_content.path]), JSON.stringify(playlist_urls));
+        });
+    });
 }
 
 function open_location (location) {
@@ -384,12 +405,12 @@ function open_location (location) {
     else if (location.show_controls) {
         show_controls(location.show_controls);
     }
-	else if (location.ytdl_playlist) {
-		open_ytdl_playlist(location.ytdl_playlist);
-	}
-	else if (location.ytdl_play) {
-		play_file(location.ytdl_play, true, true);
-	}
+    else if (location.ytdl_playlist) {
+        open_ytdl_playlist(location.ytdl_playlist);
+    }
+    else if (location.ytdl_play) {
+        play_file(location.ytdl_play, true, true);
+    }
 }
 
 function activate_link (element, state, replace_history) {

@@ -144,12 +144,11 @@ class YtdlPlaylistContent(object):
                 return name
 
     def _get_playlist(self):
-        site = self._detect_site()
+        self.type = self._detect_site()
         self.playlist = []
         for url in [e['url'] for e in self.raw_playlist]:
             entry = dict()
-            if site == 'youtube':
-                self.type = 'youtube'
+            if self.type == 'youtube':
                 try:
                     info = json.loads(check_output(['youtube-dl', '-J', url]).decode())
                 except Exception as e:
@@ -159,12 +158,10 @@ class YtdlPlaylistContent(object):
                 entry['date'] =  float(datetime.strptime(info['upload_date'], '%Y%m%d').timestamp())
                 entry['length'] = info['duration']
                 entry['title'] = info['title']
-            elif site == 'crunchyroll':
-                self.type = 'crunchyroll'
+            elif self.type == 'crunchyroll':
                 entry['url'] = url
                 entry['title'] = url.split('/')[-1]
             else:
-                self.type = 'unknown'
                 entry['url'] = url
                 entry['title'] = url
             self.playlist.append(entry)
@@ -236,8 +233,11 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
         except: pass
         playlist = [fpath]
         cmd = [mpv_executable, '--input-terminal=no', '--input-file=/dev/stdin', '--fs']
-        cmd += self.server.config.mpv_config() + self.server.config.folder_config(fpath)
-        if ytdl: cmd += ['--ytdl']
+        cmd += self.server.config.mpv_config()
+        if ytdl:
+            cmd += ['--ytdl']
+        else:
+            cmd += self.server.config.folder_config(fpath)
         cmd += ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
 
