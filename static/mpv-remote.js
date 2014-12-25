@@ -63,7 +63,9 @@ function playlist_go (step) {
     if (new_value > -1 && new_value < playlist_files.length) {
         localStorage.setItem(playlist_folder_str + 'playlist_index', new_value);
         var filename = playlist_folder.concat(playlist_files[new_value]);
-        var state = encode_state({play_type: filename});
+        var state = {};
+        state[play_type] = filename;
+        state = encode_state(state);
         history.replaceState(state[0], '', state[1]);
         play_file(filename, false, ytdl);
     }
