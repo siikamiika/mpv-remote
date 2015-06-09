@@ -27,6 +27,7 @@ class Config(object):
 
         self.dir = conf_dir
         self.commands = self.mpv_commands()
+        self.ignored_ext = self.ignored_extensions()
 
     def mpv_commands(self):
         commands = dict()
@@ -46,6 +47,22 @@ class Config(object):
                 for o in f.read().splitlines()
                 if o and not o.strip().startswith('#')
             ]
+
+    def ignored_extensions(self):
+        iefile = self.dir / 'ignored_extensions.conf'
+        if not iefile.is_file(): return []
+        with iefile.open() as f:
+            return [
+                l for l in f.read().splitlines()
+                if l and not l.strip().startswith('#')
+            ]
+
+    def ignored(self, fn):
+        fn = fn.lower()
+        for ext in self.ignored_ext:
+            if fn.endswith(ext):
+                return True
+        return False
 
     def login(self, auth):
         login_file = self.dir / 'login'
@@ -101,7 +118,8 @@ class FolderContent(object):
         try:
             for item in self.path.iterdir():
                 i = self._item_info(item)
-                if i: self.content.append(i)
+                if i and not self.config.ignored(i['path'][-1]):
+                    self.content.append(i)
         except Exception as e:
             print(e)
 

@@ -6,3 +6,4 @@ preferences/login
 preferences/config
 preferences/mpv.conf
 preferences/ytdl.conf
+preferences/ignored_extensions.conf
