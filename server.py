@@ -9,14 +9,16 @@ from os.path import splitext, dirname, realpath, expanduser
 import json
 import re
 from base64 import standard_b64encode
-from subprocess import Popen, PIPE, DEVNULL, check_output
+from subprocess import Popen, PIPE, DEVNULL, check_output, call
 from urllib.parse import unquote, urlparse
 from datetime import datetime
 
 
 mpv_executable = 'mpv'
+subdl_executable = 'subdl'
 if os.name == 'nt':
-    mpv_executable = 'mpv.com'
+    mpv_executable += '.com'
+    subdl_executable += '.bat'
 script_path = Path(dirname(realpath(__file__)))
 
 class Config(object):
@@ -226,6 +228,7 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
 
     def play_file(self, fpath, ytdl=False):
         try:
+            self.server.fpath = fpath
             p = self.server.mpv_process
             p.stdin.write(b'quit\n')
             p.stdin.flush()
@@ -270,17 +273,35 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
                 val = float(val)
             except ValueError:
                 val = None
+        elif command in ['message']:
+            pass
         else:
             val = None
         return command, val
 
-    def control_mpv(self, command, val):
+    def exec_command(self, command, val):
         command, val = self.sanitize(command, val)
         try:
             mpv_stdin = self.server.mpv_process.stdin
-            mpv_stdin.write((self.server.config.commands[command].format(val) + '\n').encode())
+            cmd = (self.server.config.commands[command].format(val) + '\n').encode()
+            mpv_stdin.write(cmd)
             mpv_stdin.flush()
         except Exception as e: print(e)
+
+    def subdl(self):
+        self.exec_command('message', 'Searching subs...')
+        status = call([subdl_executable, '--existing=overwrite', self.server.fpath])
+        if status is not 0:
+            self.exec_command('message', 'Download failed :-(')
+        else:
+            self.exec_command('rescan', None)
+            self.exec_command('message', 'Success!')
+
+    def control_mpv(self, command, val):
+        if command == 'subdl':
+            self.subdl()
+        else:
+            self.exec_command(command, val)
 
     def do_GET(self):
 

@@ -13,3 +13,6 @@ audiodelay=add audio-delay {}
 stop=quit
 info=show_progress
 fs=cycle fullscreen
+subdl=subdl
+rescan=rescan_external_files reselect
+message=show_text "{}"
