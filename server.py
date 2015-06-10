@@ -29,10 +29,7 @@ class Config(object):
         self.dir = conf_dir
         self.commands = self.mpv_commands()
         self.ignored_ext = self.ignored_extensions()
-        if os.name == 'nt' and self._ahk_exists():
-            self.ahk_exists = True
-        else:
-            self.ahk_exists = False
+        self.ahk_exists = os.name == 'nt' and self._ahk_exists()
 
     def mpv_commands(self):
         commands = dict()
