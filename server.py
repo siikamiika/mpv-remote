@@ -17,6 +17,7 @@ from datetime import datetime
 mpv_executable = 'mpv'
 subdl_executable = 'subdl'
 if os.name == 'nt':
+    import winreg
     mpv_executable += '.com'
     subdl_executable += '.bat'
 script_path = Path(dirname(realpath(__file__)))
@@ -28,6 +29,10 @@ class Config(object):
         self.dir = conf_dir
         self.commands = self.mpv_commands()
         self.ignored_ext = self.ignored_extensions()
+        if os.name == 'nt' and self._ahk_exists():
+            self.ahk_exists = True
+        else:
+            self.ahk_exists = False
 
     def mpv_commands(self):
         commands = dict()
@@ -70,6 +75,17 @@ class Config(object):
         with login_file.open('rb') as f:
             login = standard_b64encode(f.read().strip())
             return auth == 'Basic {}'.format(login.decode())
+
+    def _ahk_exists(self):
+        try:
+            HKLM = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
+            reg_ahkscript_cmd = winreg.OpenKey(HKLM,
+                'SOFTWARE\\Classes\\AutoHotkeyScript\\Shell\\Open\\Command')
+            ahkscript_cmd = winreg.EnumValue(reg_ahkscript_cmd, 0)[1]
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
     @staticmethod
     def folder_config(fpath):
@@ -261,6 +277,8 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             cmd += self.server.config.folder_config(fpath)
         cmd += ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
+        if self.server.config.ahk_exists:
+            call('focus_mpv.ahk', shell=True)
 
     def serve_static(self):
         requested = unquote(self.url_parsed.path[len('/static/'):])
