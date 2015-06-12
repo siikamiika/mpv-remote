@@ -261,7 +261,7 @@ function show_folder_content (content_json, file_dir_order, dirsort, dirsort_ord
             else if (item.type == 'file') {
                 var state = encode_state({'play_file': item.path});
                 activate_link(contentlink, state);
-                var vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv'];
+                var vid_ext = ['avi', 'mp4', 'mkv', 'ogv', 'ogg', 'flv', 'm4v', 'mov', 'mpg', 'mpeg', 'wmv', 'm3u', 'm3u8'];
                 var ext = path.split('.').pop();
                 if (vid_ext.indexOf(ext) > -1) {
                     var iconclass = 'fa fa-file-video-o';
