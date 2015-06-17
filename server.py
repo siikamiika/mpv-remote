@@ -274,8 +274,6 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             cmd += self.server.config.folder_config(fpath)
         cmd += ['--'] + playlist
         self.server.mpv_process = Popen(cmd, stdin=PIPE, stdout=DEVNULL, stderr=DEVNULL)
-        if self.server.config.ahk_exists:
-            call('focus_mpv.ahk', shell=True)
 
     def serve_static(self):
         requested = unquote(self.url_parsed.path[len('/static/'):])
@@ -330,11 +328,16 @@ class MpvRequestHandler(BaseHTTPRequestHandler):
             self.exec_command('rescan', None)
             self.exec_command('message', 'Success!')
 
+    def command_extras(self, c, v):
+        if c == 'fs' and self.server.config.ahk_exists:
+            call('focus_mpv.ahk', shell=True)
+
     def control_mpv(self, command, val):
         if command == 'subdl':
             self.subdl()
         else:
             self.exec_command(command, val)
+            self.command_extras(command, val)
 
     def do_GET(self):
 
