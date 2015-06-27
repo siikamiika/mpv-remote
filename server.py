@@ -86,13 +86,39 @@ class Config(object):
 
     @staticmethod
     def folder_config(fpath):
-        allowed = '((secondary-)?(a|s|v)(id|lang)|(sub|audio)(-delay))=[0-9a-z\.\-]+$'
+        def _regex(allowed):
+            def fn(inp):
+                match = re.match(allowed, inp)
+                return match.group(0) if match else None
+            return fn
+        def _allowed(val, fn):
+            try:
+                val = fn(val)
+                if val != None:
+                    return True
+            except Exception as e:
+                print(e)
+                return False
+        allowed = {
+            'vid': int,
+            'aid': int,
+            'sid': int,
+            'secondary-sid': int,
+            'alang': _regex('^[a-z]+$'),
+            'slang': _regex('^[a-z]+$'),
+            'audio-delay': float,
+            'sub-delay': float,
+            'video-aspect': lambda a: _regex('^[0-9\.]+:[0-9\.]+$')(a) or float(a),
+        }
         fpath = Path(fpath)
         conf_path = fpath.parent / 'mpv-remote.conf'
-        return ['--{}'.format(c)
-            for c in conf_path.open().read().splitlines()
-            if re.match(allowed, c)
-        ] if conf_path.is_file() else []
+        config = []
+        if not conf_path.is_file(): return config
+        for c in conf_path.open().read().splitlines():
+            cmd, val = c.split('=', 1)
+            if _allowed(val, allowed.get(cmd)):
+                config.append('--{}'.format(c))
+        return config
 
 
 class FolderContent(object):
